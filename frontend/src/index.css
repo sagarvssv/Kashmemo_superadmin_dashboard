@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --color-brand-50: #eafaf4;
+  --color-brand-100: #cdf1e2;
+  --color-brand-200: #9de3c8;
+  --color-brand-300: #66cda9;
+  --color-brand-400: #38b18b;
+  --color-brand-500: #1b9271;
+  --color-brand-600: #12755c;
+  --color-brand-700: #0f5e4b;
+  --color-brand-800: #0e4c3e;
+  --color-brand-900: #0c3f34;
+  --color-brand-950: #06251e;
+
+  --color-ink-50: #f7f7f5;
+  --color-ink-100: #eeece7;
+  --color-ink-200: #dcd8d0;
+  --color-ink-300: #bcb5a8;
+  --color-ink-400: #948b7b;
+  --color-ink-500: #726a5c;
+  --color-ink-600: #5a5348;
+  --color-ink-700: #46403a;
+  --color-ink-800: #2e2a25;
+  --color-ink-900: #1c1a17;
+  --color-ink-950: #100f0d;
+
+  --color-gold-50: #fdf6e8;
+  --color-gold-100: #faeac2;
+  --color-gold-200: #f3d489;
+  --color-gold-300: #e9b94f;
+  --color-gold-400: #dc9f2c;
+  --color-gold-500: #c2831c;
+  --color-gold-600: #9c6716;
+  --color-gold-700: #784f14;
+
+  --shadow-soft: 0 1px 2px rgba(28, 26, 23, 0.04), 0 8px 24px -8px rgba(28, 26, 23, 0.12);
+  --shadow-lift: 0 2px 4px rgba(28, 26, 23, 0.06), 0 16px 40px -12px rgba(28, 26, 23, 0.18);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--color-ink-50);
+  color: var(--color-ink-900);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-brand-900);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
