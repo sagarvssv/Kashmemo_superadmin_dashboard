@@ -10,7 +10,7 @@ import { PlanCard } from '../components/ui/PlanCard'
 import { Button } from '../components/ui/Button'
 import { INDUSTRY_TYPES, COUNTRIES, PLANS, type IndustryType, type Plan } from '../lib/constants'
 import { signup, extractErrorMessage } from '../lib/api'
-import { useAuth } from '../context/AuthContext'
+import { useAuthStore } from '../store/authStore'
 
 interface FormState {
   companyName: string
@@ -34,7 +34,7 @@ const initialState: FormState = {
 
 export default function Signup() {
   const navigate = useNavigate()
-  const { saveOrgProfile } = useAuth()
+  const saveOrgProfile = useAuthStore((state) => state.saveOrgProfile)
   const [form, setForm] = useState<FormState>(initialState)
   const [plan, setPlan] = useState<Plan>('STARTER')
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
@@ -72,10 +72,8 @@ export default function Signup() {
         password: form.password,
       })
       saveOrgProfile(res.data.organizationId, {
-        companyName: form.companyName.trim(),
         industryType: form.industryType as IndustryType,
         country: form.country,
-        plan,
       })
       toast.success(res.data.message || 'Signup successful. Check your email for the OTP.')
       navigate('/verify-otp', { state: { email: form.email.trim().toLowerCase() } })

@@ -7,11 +7,11 @@ import { Input } from '../components/ui/Input'
 import { PasswordInput } from '../components/ui/PasswordInput'
 import { Button } from '../components/ui/Button'
 import { login, extractErrorMessage } from '../lib/api'
-import { useAuth } from '../context/AuthContext'
+import { useAuthStore } from '../store/authStore'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { setSession } = useAuth()
+  const setSession = useAuthStore((state) => state.setSession)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({})
@@ -44,6 +44,8 @@ export default function Login() {
         role: data.role,
         status: data.status,
         isEmailVerified: data.isEmailVerified,
+        companyName: data.companyName,
+        plan: data.plan,
       })
       toast.success('Welcome back!')
       navigate('/dashboard')

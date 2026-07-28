@@ -14,7 +14,8 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { Logo } from '../ui/Logo'
-import { useAuth } from '../../context/AuthContext'
+import { useAuthStore } from '../../store/authStore'
+import { logoutRequest } from '../../lib/api'
 
 const navItems = [
   { to: '/dashboard', label: 'Overview', icon: LayoutGrid, end: true },
@@ -32,13 +33,15 @@ const planLabel: Record<string, string> = {
 }
 
 export function DashboardLayout() {
-  const { user, orgProfile, logout } = useAuth()
+  const user = useAuthStore((state) => state.user)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
   const handleLogout = () => {
-    logout()
+    logoutRequest().catch(() => {})
+    clearAuth()
     navigate('/login')
   }
 
@@ -78,14 +81,14 @@ export function DashboardLayout() {
 
       <div className="m-4 rounded-2xl bg-white/[0.06] p-4">
         <p className="font-display text-sm font-bold text-white">
-          {planLabel[orgProfile?.plan ?? 'STARTER']}
+          {planLabel[user?.plan ?? 'STARTER']}
         </p>
         <p className="mt-1 text-xs text-brand-200">
-          {orgProfile?.plan === 'ENTERPRISE'
+          {user?.plan === 'ENTERPRISE'
             ? 'You have full access to every feature.'
             : 'Upgrade to unlock more team seats & workflows.'}
         </p>
-        {orgProfile?.plan !== 'ENTERPRISE' && (
+        {user?.plan !== 'ENTERPRISE' && (
           <button className="mt-3 w-full rounded-lg bg-gold-400 px-3 py-2 font-display text-xs font-bold text-ink-900 transition-colors hover:bg-gold-300">
             Upgrade plan
           </button>
@@ -120,7 +123,7 @@ export function DashboardLayout() {
 
           <div className="hidden flex-col lg:flex">
             <p className="font-display text-lg font-bold text-ink-900">
-              {orgProfile?.companyName ?? 'Your Organization'}
+              {user?.companyName ?? 'Your Organization'}
             </p>
             <p className="text-sm text-ink-400">CEO Dashboard</p>
           </div>

@@ -2,7 +2,7 @@ import { type ButtonHTMLAttributes, forwardRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 
-type Variant = 'primary' | 'secondary' | 'ghost'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
@@ -16,6 +16,7 @@ const variantClasses: Record<Variant, string> = {
   secondary:
     'bg-white text-ink-800 border border-ink-200 hover:border-ink-300 hover:bg-ink-50 disabled:text-ink-300',
   ghost: 'bg-transparent text-brand-700 hover:bg-brand-50 disabled:text-ink-300',
+  danger: 'bg-[#d03b3b] text-white shadow-soft hover:bg-[#b93333] active:bg-[#9c2b2b] disabled:bg-ink-300',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

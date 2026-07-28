@@ -1,11 +1,66 @@
-import axios from 'axios'
-import type { IndustryType } from './constants'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
+import type { IndustryType, Plan } from './constants'
+import { useAuthStore } from '../store/authStore'
 
 export const api = axios.create({
   baseURL: '/api/org',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
+
+const AUTH_FREE_PATHS = ['/login', '/signup', '/verifyOtp', '/forgot-password', '/reset-password', '/refresh-token']
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+  _retried?: boolean
+}
+
+let isRefreshing = false
+let pendingRequests: Array<() => void> = []
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config as RetryableRequestConfig | undefined
+    const isAuthFree = AUTH_FREE_PATHS.some((path) => config?.url?.includes(path))
+
+    if (error.response?.status !== 401 || !config || config._retried || isAuthFree) {
+      return Promise.reject(error)
+    }
+
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        pendingRequests.push(() => {
+          config._retried = true
+          api(config).then(resolve, reject)
+        })
+      })
+    }
+
+    config._retried = true
+    isRefreshing = true
+    try {
+      await api.post('/refresh-token')
+      pendingRequests.forEach((run) => run())
+      pendingRequests = []
+      return api(config)
+    } catch (refreshError) {
+      pendingRequests = []
+      useAuthStore.getState().clearAuth()
+      window.location.assign('/login')
+      return Promise.reject(refreshError)
+    } finally {
+      isRefreshing = false
+    }
+  },
+)
+
+export function refreshAccessToken() {
+  return api.post('/refresh-token')
+}
+
+export function logoutRequest() {
+  return api.post('/org-logout')
+}
 
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -70,6 +125,8 @@ export interface LoginResponse {
     role: string
     status: string
     isEmailVerified: boolean
+    plan: Plan
+    companyName: string
     token: { accessToken: string; refreshToken: string }
   }
 }

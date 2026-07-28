@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowDownRight, ArrowUpRight, Clock3, Users, Wallet, TrendingDown } from 'lucide-react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Users, Wallet, TrendingDown } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
-import { useAuth } from '../../context/AuthContext'
+import { useAuthStore } from '../../store/authStore'
 import { INDUSTRY_TYPES } from '../../lib/constants'
+import { listEmployees, type Employee } from '../../lib/employees'
 
 const flowData = [
   { month: 'Feb', replenished: 42000, spent: 31500 },
@@ -13,7 +16,7 @@ const flowData = [
   { month: 'Jul', replenished: 62500, spent: 41900 },
 ]
 
-const kpis = [
+const moneyKpis = [
   {
     label: 'Total petty cash balance',
     value: '₹2,84,600',
@@ -34,13 +37,6 @@ const kpis = [
     delta: '3 due today',
     trend: 'neutral' as const,
     icon: Clock3,
-  },
-  {
-    label: 'Active team members',
-    value: '12',
-    delta: '+2 this month',
-    trend: 'up' as const,
-    icon: Users,
   },
 ]
 
@@ -63,18 +59,47 @@ function formatINR(value: number) {
 }
 
 export default function Overview() {
-  const { user, orgProfile } = useAuth()
+  const user = useAuthStore((state) => state.user)
+  const orgProfile = useAuthStore((state) => state.orgProfile)
   const firstName = user?.name?.split(' ')[0] ?? 'there'
   const industryLabel = INDUSTRY_TYPES.find((i) => i.value === orgProfile?.industryType)?.label
+
+  const [recentHires, setRecentHires] = useState<Employee[]>([])
+  const [totalEmployees, setTotalEmployees] = useState<number | null>(null)
+  const [employeesLoading, setEmployeesLoading] = useState(true)
+
+  useEffect(() => {
+    listEmployees({ page: 1, limit: 5 })
+      .then((res) => {
+        setRecentHires(res.data)
+        setTotalEmployees(res.pagination.total)
+      })
+      .catch(() => {
+        setRecentHires([])
+        setTotalEmployees(null)
+      })
+      .finally(() => setEmployeesLoading(false))
+  }, [])
+
+  const kpis = [
+    ...moneyKpis,
+    {
+      label: 'Active team members',
+      value: employeesLoading || totalEmployees === null ? '—' : String(totalEmployees),
+      delta: 'View team',
+      trend: 'neutral' as const,
+      icon: Users,
+    },
+  ]
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-display text-2xl font-extrabold text-ink-900">Welcome back, {firstName}</h1>
         <p className="mt-1 text-[15px] text-ink-500">
-          {orgProfile
-            ? `Here's how ${orgProfile.companyName} is tracking petty cash across ${orgProfile.country}${
-                industryLabel ? ` in ${industryLabel}` : ''
+          {user?.companyName
+            ? `Here's how ${user.companyName} is tracking petty cash${
+                orgProfile ? ` across ${orgProfile.country}${industryLabel ? ` in ${industryLabel}` : ''}` : ''
               }.`
             : "Here's what's happening with your organization's petty cash today."}
         </p>
@@ -183,41 +208,88 @@ export default function Overview() {
         </div>
       </Card>
 
-      <Card className="!p-0 overflow-hidden">
-        <div className="p-6 pb-0">
-          <h2 className="font-display text-lg font-bold text-ink-900">Recent activity</h2>
-          <p className="text-sm text-ink-500">Latest petty cash requests across your organization</p>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse">
-            <thead>
-              <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                <th className="px-6 py-3 font-semibold">Description</th>
-                <th className="px-6 py-3 font-semibold">Requested by</th>
-                <th className="px-6 py-3 font-semibold">Amount</th>
-                <th className="px-6 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activity.map((row) => (
-                <tr key={row.name} className="border-b border-ink-100 last:border-0">
-                  <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{row.name}</td>
-                  <td className="px-6 py-3.5 text-sm text-ink-500">{row.by}</td>
-                  <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">{row.amount}</td>
-                  <td className="px-6 py-3.5">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[row.status]}`}
-                    >
-                      {row.status}
-                    </span>
-                  </td>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="!p-0 overflow-hidden xl:col-span-2">
+          <div className="p-6 pb-0">
+            <h2 className="font-display text-lg font-bold text-ink-900">Recent activity</h2>
+            <p className="text-sm text-ink-500">Latest petty cash requests across your organization</p>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse">
+              <thead>
+                <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-6 py-3 font-semibold">Description</th>
+                  <th className="px-6 py-3 font-semibold">Requested by</th>
+                  <th className="px-6 py-3 font-semibold">Amount</th>
+                  <th className="px-6 py-3 font-semibold">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="h-2" />
-      </Card>
+              </thead>
+              <tbody>
+                {activity.map((row) => (
+                  <tr key={row.name} className="border-b border-ink-100 last:border-0">
+                    <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{row.name}</td>
+                    <td className="px-6 py-3.5 text-sm text-ink-500">{row.by}</td>
+                    <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">{row.amount}</td>
+                    <td className="px-6 py-3.5">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[row.status]}`}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="h-2" />
+        </Card>
+
+        <Card className="!p-0 overflow-hidden">
+          <div className="flex items-center justify-between p-6 pb-0">
+            <div>
+              <h2 className="font-display text-lg font-bold text-ink-900">Team</h2>
+              <p className="text-sm text-ink-500">Recently added employees</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 p-3 pt-4">
+            {employeesLoading ? (
+              <p className="px-3 py-6 text-center text-sm text-ink-400">Loading…</p>
+            ) : recentHires.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-ink-400">No employees added yet.</p>
+            ) : (
+              recentHires.map((employee) => {
+                const initials = employee.name
+                  .split(' ')
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()
+                return (
+                  <div key={employee.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-100 font-display text-xs font-bold text-brand-800">
+                      {initials}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink-800">{employee.name}</p>
+                      <p className="truncate text-xs text-ink-400">{employee.designation}</p>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <Link
+            to="/dashboard/team"
+            className="flex items-center justify-center gap-1.5 border-t border-ink-100 px-6 py-3.5 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+          >
+            View all team members
+            <ArrowRight className="size-4" />
+          </Link>
+        </Card>
+      </div>
     </div>
   )
 }
