@@ -37,6 +37,7 @@ export interface ListEmployeesParams {
   search?: string
   status?: string
   designation?: string
+  role?: string
 }
 
 export function listEmployees(params: ListEmployeesParams = {}) {
@@ -90,6 +91,30 @@ export function deleteEmployee(employeeId: string) {
   return api
     .delete<{ status: string; data: { message: string } }>(`/delete-employee/${employeeId}`)
     .then((res) => res.data)
+}
+
+export const ASSIGNABLE_ROLES = ['MANAGER', 'HR', 'EMPLOYEE'] as const
+export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number]
+
+export function changeEmployeeRole(employeeId: string, role: AssignableRole) {
+  return api
+    .patch<{ status: string; data: Employee }>(`/change-employee-role/${employeeId}`, { role })
+    .then((res) => res.data)
+}
+
+export interface EmployeeDetails {
+  id: string
+  name: string
+  email: string
+  phoneNumber: string | null
+  designation: string | null
+  role: string
+  department: { name: string } | null
+  organization: { companyName: string }
+}
+
+export function getEmployeeDetails(employeeId: string) {
+  return api.get<{ status: string; data: EmployeeDetails }>(`/get-employee/${employeeId}`).then((res) => res.data)
 }
 
 export interface CsvRowError {

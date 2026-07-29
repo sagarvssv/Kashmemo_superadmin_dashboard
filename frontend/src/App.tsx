@@ -8,6 +8,7 @@ import VerifyOtp from './pages/VerifyOtp'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Overview from './pages/dashboard/Overview'
+import PettyCash from './pages/dashboard/PettyCash'
 import Team from './pages/dashboard/Team'
 import Settings from './pages/dashboard/Settings'
 import ComingSoon from './pages/dashboard/ComingSoon'
@@ -33,7 +34,7 @@ export default function App() {
           }
         >
           <Route index element={<Overview />} />
-          <Route path="petty-cash" element={<ComingSoon title="Petty Cash" />} />
+          <Route path="petty-cash" element={<PettyCash />} />
           <Route path="approvals" element={<ComingSoon title="Approvals" />} />
           <Route path="reports" element={<ComingSoon title="Reports" />} />
           <Route path="team" element={<Team />} />

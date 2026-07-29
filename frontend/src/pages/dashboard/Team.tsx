@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import {
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   Loader2,
   Plus,
   Search,
@@ -20,14 +24,19 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { extractErrorMessage } from '../../lib/api'
 import {
+  ASSIGNABLE_ROLES,
   addManualEmployee,
+  changeEmployeeRole,
   deleteEmployee,
   downloadCsvTemplate,
   extractCsvRowErrors,
+  getEmployeeDetails,
   listEmployees,
   uploadEmployeeCsv,
+  type AssignableRole,
   type CsvRowError,
   type Employee,
+  type EmployeeDetails,
   type Pagination,
 } from '../../lib/employees'
 
@@ -35,6 +44,12 @@ const statusStyles: Record<string, string> = {
   ACTIVE: 'bg-[#e6f6e6] text-[#0ca30c]',
   INACTIVE: 'bg-ink-100 text-ink-500',
   SUSPENDED: 'bg-[#fbe9e9] text-[#d03b3b]',
+}
+
+const roleStyles: Record<string, string> = {
+  MANAGER: 'bg-brand-50 text-brand-700',
+  HR: 'bg-gold-100 text-gold-700',
+  EMPLOYEE: 'bg-ink-100 text-ink-600',
 }
 
 const STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'SUSPENDED']
@@ -70,6 +85,23 @@ export default function Team() {
   const [csvErrors, setCsvErrors] = useState<CsvRowError[] | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null)
+  const [openRoleMenuFor, setOpenRoleMenuFor] = useState<string | null>(null)
+  const [roleMenuPosition, setRoleMenuPosition] = useState<{ top: number; left: number } | null>(null)
+
+  useEffect(() => {
+    if (!openRoleMenuFor) return
+    const close = () => setOpenRoleMenuFor(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [openRoleMenuFor])
+  const [viewTarget, setViewTarget] = useState<Employee | null>(null)
+  const [viewDetails, setViewDetails] = useState<EmployeeDetails | null>(null)
+  const [viewLoading, setViewLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [page, setPage] = useState(1)
@@ -77,13 +109,14 @@ export default function Team() {
   const [searchInput, setSearchInput] = useState('')
   const [designationInput, setDesignationInput] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
   const search = useDebouncedValue(searchInput, 350)
   const designation = useDebouncedValue(designationInput, 350)
-  const hasActiveFilters = !!(search || designation || statusFilter)
+  const hasActiveFilters = !!(search || designation || statusFilter || roleFilter)
 
   useEffect(() => {
     setPage(1)
-  }, [search, designation, statusFilter, limit])
+  }, [search, designation, statusFilter, roleFilter, limit])
 
   const fetchEmployees = () => {
     setLoading(true)
@@ -93,6 +126,7 @@ export default function Team() {
       search: search || undefined,
       designation: designation || undefined,
       status: statusFilter || undefined,
+      role: roleFilter || undefined,
     })
       .then((res) => {
         setEmployees(res.data)
@@ -104,7 +138,7 @@ export default function Team() {
 
   useEffect(() => {
     fetchEmployees()
-  }, [page, limit, search, designation, statusFilter])
+  }, [page, limit, search, designation, statusFilter, roleFilter])
 
   const updateForm = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
@@ -179,6 +213,34 @@ export default function Team() {
     }
   }
 
+  const handleRoleChange = async (employee: Employee, newRole: AssignableRole) => {
+    const previousRole = employee.role
+    setRoleUpdatingId(employee.id)
+    setEmployees((list) => list.map((e) => (e.id === employee.id ? { ...e, role: newRole } : e)))
+    try {
+      await changeEmployeeRole(employee.id, newRole)
+      toast.success(`${employee.name}'s role updated to ${newRole}.`)
+    } catch (err) {
+      setEmployees((list) => list.map((e) => (e.id === employee.id ? { ...e, role: previousRole } : e)))
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setRoleUpdatingId(null)
+    }
+  }
+
+  const handleViewEmployee = (employee: Employee) => {
+    setViewTarget(employee)
+    setViewDetails(null)
+    setViewLoading(true)
+    getEmployeeDetails(employee.id)
+      .then((res) => setViewDetails(res.data))
+      .catch((err) => {
+        toast.error(extractErrorMessage(err))
+        setViewTarget(null)
+      })
+      .finally(() => setViewLoading(false))
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -231,6 +293,18 @@ export default function Team() {
             </option>
           ))}
         </Select>
+        <Select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="sm:max-w-[180px]"
+        >
+          <option value="">All roles</option>
+          {ASSIGNABLE_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <Card className="!p-0 overflow-hidden">
@@ -254,11 +328,12 @@ export default function Team() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table className="w-full min-w-[880px] border-collapse">
               <thead>
                 <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                   <th className="px-6 py-3 font-semibold">Name</th>
+                  <th className="px-6 py-3 font-semibold">Role</th>
                   <th className="px-6 py-3 font-semibold">Designation</th>
                   <th className="px-6 py-3 font-semibold">Phone</th>
                   <th className="px-6 py-3 font-semibold">Status</th>
@@ -272,6 +347,52 @@ export default function Team() {
                     <td className="px-6 py-3.5">
                       <p className="text-sm font-medium text-ink-800">{employee.name}</p>
                       <p className="text-sm text-ink-400">{employee.email}</p>
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setRoleMenuPosition({ top: rect.bottom + 6, left: rect.left })
+                          setOpenRoleMenuFor((id) => (id === employee.id ? null : employee.id))
+                        }}
+                        disabled={roleUpdatingId === employee.id}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                          roleStyles[employee.role] ?? 'bg-ink-100 text-ink-600'
+                        }`}
+                      >
+                        {roleUpdatingId === employee.id ? <Loader2 className="size-3 animate-spin" /> : null}
+                        {employee.role}
+                        <ChevronDown className="size-3" />
+                      </button>
+
+                      {openRoleMenuFor === employee.id &&
+                        roleMenuPosition &&
+                        createPortal(
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setOpenRoleMenuFor(null)} />
+                            <div
+                              className="fixed z-50 w-36 rounded-xl border border-ink-200 bg-white p-1.5 shadow-lift"
+                              style={{ top: roleMenuPosition.top, left: roleMenuPosition.left }}
+                            >
+                              {ASSIGNABLE_ROLES.map((r) => (
+                                <button
+                                  key={r}
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenRoleMenuFor(null)
+                                    if (r !== employee.role) handleRoleChange(employee, r)
+                                  }}
+                                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+                                >
+                                  {r}
+                                  {employee.role === r && <Check className="size-4 text-brand-600" />}
+                                </button>
+                              ))}
+                            </div>
+                          </>,
+                          document.body,
+                        )}
                     </td>
                     <td className="px-6 py-3.5 text-sm text-ink-600">{employee.designation}</td>
                     <td className="px-6 py-3.5 text-sm text-ink-600">{employee.phoneNumber ?? '—'}</td>
@@ -292,6 +413,13 @@ export default function Team() {
                       )}
                     </td>
                     <td className="px-6 py-3.5 text-right">
+                      <button
+                        onClick={() => handleViewEmployee(employee)}
+                        className="rounded-lg p-2 text-ink-400 hover:bg-brand-50 hover:text-brand-700"
+                        aria-label={`View ${employee.name}`}
+                      >
+                        <Eye className="size-4" />
+                      </button>
                       <button
                         onClick={() => setDeleteTarget(employee)}
                         className="rounded-lg p-2 text-ink-400 hover:bg-[#fbe9e9] hover:text-[#d03b3b]"
@@ -431,6 +559,54 @@ export default function Team() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      <Modal open={!!viewTarget} onClose={() => setViewTarget(null)} title="Employee details" maxWidth="max-w-md">
+        {viewLoading ? (
+          <div className="flex items-center justify-center gap-2.5 py-10 text-ink-400">
+            <Loader2 className="size-5 animate-spin" />
+            Loading…
+          </div>
+        ) : viewDetails ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex size-12 items-center justify-center rounded-full bg-brand-100 font-display text-base font-bold text-brand-800">
+                {viewDetails.name
+                  .split(' ')
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()}
+              </span>
+              <div>
+                <p className="font-display text-lg font-bold text-ink-900">{viewDetails.name}</p>
+                <p className="text-sm text-ink-500">{viewDetails.designation ?? '—'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-ink-100 px-4 py-3">
+                <p className="text-xs text-ink-400">Email</p>
+                <p className="text-sm font-medium text-ink-800">{viewDetails.email}</p>
+              </div>
+              <div className="rounded-xl border border-ink-100 px-4 py-3">
+                <p className="text-xs text-ink-400">Phone</p>
+                <p className="text-sm font-medium text-ink-800">{viewDetails.phoneNumber ?? 'Not provided'}</p>
+              </div>
+              <div className="rounded-xl border border-ink-100 px-4 py-3">
+                <p className="text-xs text-ink-400">Role</p>
+                <p className="text-sm font-medium text-ink-800">{viewDetails.role}</p>
+              </div>
+              <div className="rounded-xl border border-ink-100 px-4 py-3">
+                <p className="text-xs text-ink-400">Department</p>
+                <p className="text-sm font-medium text-ink-800">{viewDetails.department?.name ?? 'Unassigned'}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-ink-100 px-4 py-3">
+              <p className="text-xs text-ink-400">Organization</p>
+              <p className="text-sm font-medium text-ink-800">{viewDetails.organization.companyName}</p>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   )
 }

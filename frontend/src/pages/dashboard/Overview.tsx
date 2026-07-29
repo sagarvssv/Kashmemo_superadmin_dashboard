@@ -4,8 +4,10 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Users, Wallet, TrendingDown } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { useAuthStore } from '../../store/authStore'
+import { useCurrencyStore } from '../../store/currencyStore'
 import { INDUSTRY_TYPES } from '../../lib/constants'
 import { listEmployees, type Employee } from '../../lib/employees'
+import { formatCurrency } from '../../lib/format'
 
 const flowData = [
   { month: 'Feb', replenished: 42000, spent: 31500 },
@@ -19,33 +21,36 @@ const flowData = [
 const moneyKpis = [
   {
     label: 'Total petty cash balance',
-    value: '₹2,84,600',
+    value: 284600,
     delta: '+8.2%',
     trend: 'up' as const,
     icon: Wallet,
+    isCurrency: true,
   },
   {
     label: "This month's expenses",
-    value: '₹41,900',
+    value: 41900,
     delta: '-5.4%',
     trend: 'down' as const,
     icon: TrendingDown,
+    isCurrency: true,
   },
   {
     label: 'Pending approvals',
-    value: '7',
+    value: 7,
     delta: '3 due today',
     trend: 'neutral' as const,
     icon: Clock3,
+    isCurrency: false,
   },
 ]
 
 const activity = [
-  { name: 'Office supplies — Andheri branch', by: 'Rohit Sharma', amount: '₹3,200', status: 'Approved' },
-  { name: 'Client lunch reimbursement', by: 'Priya Nair', amount: '₹1,850', status: 'Pending' },
-  { name: 'Courier & logistics', by: 'Amit Verma', amount: '₹960', status: 'Approved' },
-  { name: 'Emergency generator fuel', by: 'Sana Khan', amount: '₹5,400', status: 'Rejected' },
-  { name: 'Stationery restock', by: 'Rohit Sharma', amount: '₹1,120', status: 'Pending' },
+  { name: 'Office supplies — Andheri branch', by: 'Rohit Sharma', amount: 3200, status: 'Approved' },
+  { name: 'Client lunch reimbursement', by: 'Priya Nair', amount: 1850, status: 'Pending' },
+  { name: 'Courier & logistics', by: 'Amit Verma', amount: 960, status: 'Approved' },
+  { name: 'Emergency generator fuel', by: 'Sana Khan', amount: 5400, status: 'Rejected' },
+  { name: 'Stationery restock', by: 'Rohit Sharma', amount: 1120, status: 'Pending' },
 ]
 
 const statusStyles: Record<string, string> = {
@@ -54,13 +59,10 @@ const statusStyles: Record<string, string> = {
   Rejected: 'bg-[#fbe9e9] text-[#d03b3b]',
 }
 
-function formatINR(value: number) {
-  return `₹${value.toLocaleString('en-IN')}`
-}
-
 export default function Overview() {
   const user = useAuthStore((state) => state.user)
   const orgProfile = useAuthStore((state) => state.orgProfile)
+  const currencyCode = useCurrencyStore((state) => state.currencyCode)
   const firstName = user?.name?.split(' ')[0] ?? 'there'
   const industryLabel = INDUSTRY_TYPES.find((i) => i.value === orgProfile?.industryType)?.label
 
@@ -82,7 +84,10 @@ export default function Overview() {
   }, [])
 
   const kpis = [
-    ...moneyKpis,
+    ...moneyKpis.map((k) => ({
+      ...k,
+      value: k.isCurrency ? formatCurrency(k.value, currencyCode) : String(k.value),
+    })),
     {
       label: 'Active team members',
       value: employeesLoading || totalEmployees === null ? '—' : String(totalEmployees),
@@ -179,8 +184,8 @@ export default function Overview() {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#898781', fontSize: 12 }}
-                tickFormatter={(v) => `₹${v / 1000}k`}
-                width={48}
+                tickFormatter={(v) => `${currencyCode} ${v / 1000}k`}
+                width={64}
               />
               <Tooltip
                 cursor={{ stroke: '#c3c2b7', strokeWidth: 1 }}
@@ -191,7 +196,7 @@ export default function Overview() {
                   fontSize: 13,
                 }}
                 formatter={(value, name) => [
-                  formatINR(Number(value)),
+                  formatCurrency(Number(value), currencyCode),
                   name === 'replenished' ? 'Replenished' : 'Spent',
                 ]}
               />
@@ -229,7 +234,9 @@ export default function Overview() {
                   <tr key={row.name} className="border-b border-ink-100 last:border-0">
                     <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{row.name}</td>
                     <td className="px-6 py-3.5 text-sm text-ink-500">{row.by}</td>
-                    <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">{row.amount}</td>
+                    <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">
+                      {formatCurrency(row.amount, currencyCode)}
+                    </td>
                     <td className="px-6 py-3.5">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[row.status]}`}

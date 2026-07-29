@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
-import { BadgeCheck, Loader2, Mail, Phone, ShieldCheck } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { BadgeCheck, Coins, Loader2, Mail, Phone, ShieldCheck } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Field } from '../../components/ui/Field'
+import { Select } from '../../components/ui/Select'
 import { extractErrorMessage } from '../../lib/api'
 import { getProfile, type Profile } from '../../lib/employees'
+import { CURRENCIES } from '../../lib/currency'
+import { useCurrencyStore } from '../../store/currencyStore'
 
 export default function Settings() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const currencyCode = useCurrencyStore((state) => state.currencyCode)
+  const setCurrencyCode = useCurrencyStore((state) => state.setCurrencyCode)
 
   useEffect(() => {
     getProfile()
@@ -83,6 +90,34 @@ export default function Settings() {
           </div>
         </Card>
       ) : null}
+
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+            <Coins className="size-[18px]" />
+          </span>
+          <div>
+            <h2 className="font-display text-lg font-bold text-ink-900">Preferences</h2>
+            <p className="text-sm text-ink-500">Choose the currency used across your dashboard.</p>
+          </div>
+        </div>
+        <Field label="Currency" htmlFor="currency" className="max-w-xs">
+          <Select
+            id="currency"
+            value={currencyCode}
+            onChange={(e) => {
+              setCurrencyCode(e.target.value)
+              toast.success('Currency updated.')
+            }}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </Card>
     </div>
   )
 }
