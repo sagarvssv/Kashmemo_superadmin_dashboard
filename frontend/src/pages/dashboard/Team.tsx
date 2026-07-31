@@ -22,7 +22,9 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Field } from '../../components/ui/Field'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
+import { CopyableField } from '../../components/ui/CopyableField'
 import { extractErrorMessage } from '../../lib/api'
+import { useAuthStore } from '../../store/authStore'
 import {
   ASSIGNABLE_ROLES,
   addManualEmployee,
@@ -42,8 +44,18 @@ import {
 
 const statusStyles: Record<string, string> = {
   ACTIVE: 'bg-[#e6f6e6] text-[#0ca30c]',
-  INACTIVE: 'bg-ink-100 text-ink-500',
-  SUSPENDED: 'bg-[#fbe9e9] text-[#d03b3b]',
+  PENDING_VERIFICATION: 'bg-[#fef3de] text-[#9c6716]',
+  LOADED: 'bg-ink-100 text-ink-500',
+  ROLE_ASSIGNED: 'bg-brand-50 text-brand-700',
+  DISABLED: 'bg-[#fbe9e9] text-[#d03b3b]',
+}
+
+const statusLabels: Record<string, string> = {
+  ACTIVE: 'Active',
+  PENDING_VERIFICATION: 'Pending Verification',
+  LOADED: 'Loaded',
+  ROLE_ASSIGNED: 'Role Assigned',
+  DISABLED: 'Disabled',
 }
 
 const roleStyles: Record<string, string> = {
@@ -52,7 +64,15 @@ const roleStyles: Record<string, string> = {
   EMPLOYEE: 'bg-ink-100 text-ink-600',
 }
 
-const STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'SUSPENDED']
+const STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'PENDING_VERIFICATION', label: 'Pending Verification' },
+  { value: 'LOADED', label: 'Loaded' },
+  { value: 'ROLE_ASSIGNED', label: 'Role Assigned' },
+  { value: 'DISABLED', label: 'Disabled' }
+];
+
+
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value)
@@ -74,6 +94,7 @@ interface FormState {
 const emptyForm: FormState = { name: '', email: '', phoneNumber: '', designation: '', department: '' }
 
 export default function Team() {
+  const user = useAuthStore((state) => state.user)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading] = useState(true)
@@ -288,8 +309,8 @@ export default function Team() {
         >
           <option value="">All statuses</option>
           {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s}
+            <option key={s.value} value={s.value}>
+              {s.label}
             </option>
           ))}
         </Select>
@@ -402,7 +423,7 @@ export default function Team() {
                           statusStyles[employee.status] ?? 'bg-ink-100 text-ink-500'
                         }`}
                       >
-                        {employee.status}
+                        {statusLabels[employee.status] ?? employee.status}
                       </span>
                     </td>
                     <td className="px-6 py-3.5">
@@ -603,6 +624,10 @@ export default function Team() {
             <div className="rounded-xl border border-ink-100 px-4 py-3">
               <p className="text-xs text-ink-400">Organization</p>
               <p className="text-sm font-medium text-ink-800">{viewDetails.organization.companyName}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <CopyableField label="User ID" value={viewDetails.id} />
+              <CopyableField label="Organization ID" value={user?.organizationId ?? 'Unavailable'} />
             </div>
           </div>
         ) : null}

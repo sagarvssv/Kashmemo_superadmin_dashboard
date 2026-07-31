@@ -8,6 +8,7 @@ import { extractErrorMessage } from '../../lib/api'
 import { getProfile, type Profile } from '../../lib/employees'
 import { CURRENCIES } from '../../lib/currency'
 import { useCurrencyStore } from '../../store/currencyStore'
+import { CopyableField } from '../../components/ui/CopyableField'
 
 export default function Settings() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -88,6 +89,8 @@ export default function Settings() {
               </div>
             </div>
           </div>
+
+          <CopyableField label="Organization ID" value={profile.organizationId} />
         </Card>
       ) : null}
 

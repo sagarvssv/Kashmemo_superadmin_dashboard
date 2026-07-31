@@ -1,13 +1,29 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Users, Wallet, TrendingDown } from 'lucide-react'
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  Clock3,
+  Users,
+  Wallet,
+  TrendingDown,
+  type LucideIcon,
+} from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Select } from '../../components/ui/Select'
 import { useAuthStore } from '../../store/authStore'
 import { useCurrencyStore } from '../../store/currencyStore'
 import { INDUSTRY_TYPES } from '../../lib/constants'
 import { listEmployees, type Employee } from '../../lib/employees'
-import { formatCurrency } from '../../lib/format'
+import { getOrganizationBudget } from '../../lib/budget'
+import { formatCurrency, MONTH_NAMES } from '../../lib/format'
+import { extractErrorMessage } from '../../lib/api'
+
+const now = new Date()
+const YEAR_OPTIONS = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, now.getFullYear() + 2]
 
 const flowData = [
   { month: 'Feb', replenished: 42000, spent: 31500 },
@@ -18,20 +34,21 @@ const flowData = [
   { month: 'Jul', replenished: 62500, spent: 41900 },
 ]
 
-const moneyKpis = [
-  {
-    label: 'Total petty cash balance',
-    value: 284600,
-    delta: '+8.2%',
-    trend: 'up' as const,
-    icon: Wallet,
-    isCurrency: true,
-  },
+interface MoneyKpi {
+  label: string
+  value: number
+  delta: string
+  trend: 'up' | 'down' | 'neutral'
+  icon: LucideIcon
+  isCurrency: boolean
+}
+
+const moneyKpis: MoneyKpi[] = [
   {
     label: "This month's expenses",
     value: 41900,
     delta: '-5.4%',
-    trend: 'down' as const,
+    trend: 'down',
     icon: TrendingDown,
     isCurrency: true,
   },
@@ -39,7 +56,7 @@ const moneyKpis = [
     label: 'Pending approvals',
     value: 7,
     delta: '3 due today',
-    trend: 'neutral' as const,
+    trend: 'neutral',
     icon: Clock3,
     isCurrency: false,
   },
@@ -70,6 +87,11 @@ export default function Overview() {
   const [totalEmployees, setTotalEmployees] = useState<number | null>(null)
   const [employeesLoading, setEmployeesLoading] = useState(true)
 
+  const [budgetMonth, setBudgetMonth] = useState(now.getMonth() + 1)
+  const [budgetYear, setBudgetYear] = useState(now.getFullYear())
+  const [totalAllocated, setTotalAllocated] = useState<number | null>(null)
+  const [budgetLoading, setBudgetLoading] = useState(true)
+
   useEffect(() => {
     listEmployees({ page: 1, limit: 5 })
       .then((res) => {
@@ -83,7 +105,29 @@ export default function Overview() {
       .finally(() => setEmployeesLoading(false))
   }, [])
 
+  useEffect(() => {
+    setBudgetLoading(true)
+    getOrganizationBudget(budgetMonth, budgetYear)
+      .then((res) => {
+        const total = res.data.reduce((sum, row) => sum + Number(row.amount), 0)
+        setTotalAllocated(total)
+      })
+      .catch((err) => {
+        toast.error(extractErrorMessage(err))
+        setTotalAllocated(null)
+      })
+      .finally(() => setBudgetLoading(false))
+  }, [budgetMonth, budgetYear])
+
   const kpis = [
+    {
+      label: `Budget allocated · ${MONTH_NAMES[budgetMonth - 1]} ${budgetYear}`,
+      value:
+        budgetLoading || totalAllocated === null ? '—' : formatCurrency(totalAllocated, currencyCode),
+      delta: 'View petty cash',
+      trend: 'neutral' as const,
+      icon: Wallet,
+    },
     ...moneyKpis.map((k) => ({
       ...k,
       value: k.isCurrency ? formatCurrency(k.value, currencyCode) : String(k.value),
@@ -99,15 +143,41 @@ export default function Overview() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-display text-2xl font-extrabold text-ink-900">Welcome back, {firstName}</h1>
-        <p className="mt-1 text-[15px] text-ink-500">
-          {user?.companyName
-            ? `Here's how ${user.companyName} is tracking petty cash${
-                orgProfile ? ` across ${orgProfile.country}${industryLabel ? ` in ${industryLabel}` : ''}` : ''
-              }.`
-            : "Here's what's happening with your organization's petty cash today."}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-ink-900">Welcome back, {firstName}</h1>
+          <p className="mt-1 text-[15px] text-ink-500">
+            {user?.companyName
+              ? `Here's how ${user.companyName} is tracking petty cash${
+                  orgProfile ? ` across ${orgProfile.country}${industryLabel ? ` in ${industryLabel}` : ''}` : ''
+                }.`
+              : "Here's what's happening with your organization's petty cash today."}
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <Select
+            value={budgetMonth}
+            onChange={(e) => setBudgetMonth(Number(e.target.value))}
+            className="max-w-[150px]"
+          >
+            {MONTH_NAMES.map((name, i) => (
+              <option key={name} value={i + 1}>
+                {name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={budgetYear}
+            onChange={(e) => setBudgetYear(Number(e.target.value))}
+            className="max-w-[110px]"
+          >
+            {YEAR_OPTIONS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
