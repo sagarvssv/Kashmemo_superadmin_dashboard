@@ -2,23 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import {
-  ArrowDownRight,
-  ArrowRight,
-  ArrowUpRight,
-  Clock3,
-  Users,
-  Wallet,
-  TrendingDown,
-  type LucideIcon,
-} from 'lucide-react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Receipt, Users, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Select } from '../../components/ui/Select'
 import { useAuthStore } from '../../store/authStore'
 import { useCurrencyStore } from '../../store/currencyStore'
 import { INDUSTRY_TYPES } from '../../lib/constants'
 import { listEmployees, type Employee } from '../../lib/employees'
-import { getOrganizationBudget } from '../../lib/budget'
+import { getDashboardSummary, type DashboardSummary } from '../../lib/dashboard'
 import { formatCurrency, MONTH_NAMES } from '../../lib/format'
 import { extractErrorMessage } from '../../lib/api'
 
@@ -32,34 +23,6 @@ const flowData = [
   { month: 'May', replenished: 46500, spent: 37800 },
   { month: 'Jun', replenished: 58000, spent: 44300 },
   { month: 'Jul', replenished: 62500, spent: 41900 },
-]
-
-interface MoneyKpi {
-  label: string
-  value: number
-  delta: string
-  trend: 'up' | 'down' | 'neutral'
-  icon: LucideIcon
-  isCurrency: boolean
-}
-
-const moneyKpis: MoneyKpi[] = [
-  {
-    label: "This month's expenses",
-    value: 41900,
-    delta: '-5.4%',
-    trend: 'down',
-    icon: TrendingDown,
-    isCurrency: true,
-  },
-  {
-    label: 'Pending approvals',
-    value: 7,
-    delta: '3 due today',
-    trend: 'neutral',
-    icon: Clock3,
-    isCurrency: false,
-  },
 ]
 
 const activity = [
@@ -89,8 +52,8 @@ export default function Overview() {
 
   const [budgetMonth, setBudgetMonth] = useState(now.getMonth() + 1)
   const [budgetYear, setBudgetYear] = useState(now.getFullYear())
-  const [totalAllocated, setTotalAllocated] = useState<number | null>(null)
-  const [budgetLoading, setBudgetLoading] = useState(true)
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(true)
 
   useEffect(() => {
     listEmployees({ page: 1, limit: 5 })
@@ -106,32 +69,50 @@ export default function Overview() {
   }, [])
 
   useEffect(() => {
-    setBudgetLoading(true)
-    getOrganizationBudget(budgetMonth, budgetYear)
-      .then((res) => {
-        const total = res.data.reduce((sum, row) => sum + Number(row.amount), 0)
-        setTotalAllocated(total)
-      })
+    setSummaryLoading(true)
+    getDashboardSummary(budgetMonth, budgetYear)
+      .then((res) => setSummary(res.data))
       .catch((err) => {
         toast.error(extractErrorMessage(err))
-        setTotalAllocated(null)
+        setSummary(null)
       })
-      .finally(() => setBudgetLoading(false))
+      .finally(() => setSummaryLoading(false))
   }, [budgetMonth, budgetYear])
+
+  const budgetProgress =
+    summary && summary.budget.totalAllocatedBudget > 0
+      ? Math.min(100, (summary.budget.totalSpent / summary.budget.totalAllocatedBudget) * 100)
+      : 0
 
   const kpis = [
     {
-      label: `Budget allocated · ${MONTH_NAMES[budgetMonth - 1]} ${budgetYear}`,
+      label: `Budget · ${MONTH_NAMES[budgetMonth - 1]} ${budgetYear}`,
       value:
-        budgetLoading || totalAllocated === null ? '—' : formatCurrency(totalAllocated, currencyCode),
+        summaryLoading || !summary
+          ? '—'
+          : `${formatCurrency(summary.budget.totalSpent, currencyCode)} / ${formatCurrency(
+              summary.budget.totalAllocatedBudget,
+              currencyCode,
+            )}`,
       delta: 'View petty cash',
       trend: 'neutral' as const,
       icon: Wallet,
+      progress: summaryLoading || !summary ? undefined : budgetProgress,
     },
-    ...moneyKpis.map((k) => ({
-      ...k,
-      value: k.isCurrency ? formatCurrency(k.value, currencyCode) : String(k.value),
-    })),
+    {
+      label: 'Disbursed this month',
+      value: summaryLoading || !summary ? '—' : String(summary.tickets.DISBURSED),
+      delta: 'Completed tickets',
+      trend: 'neutral' as const,
+      icon: Receipt,
+    },
+    {
+      label: 'Pending approvals',
+      value: summaryLoading || !summary ? '—' : String(summary.tickets.PENDING),
+      delta: 'View tickets',
+      trend: 'neutral' as const,
+      icon: Clock3,
+    },
     {
       label: 'Active team members',
       value: employeesLoading || totalEmployees === null ? '—' : String(totalEmployees),
@@ -181,7 +162,7 @@ export default function Overview() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map(({ label, value, delta, trend, icon: Icon }) => (
+        {kpis.map(({ label, value, delta, trend, icon: Icon, progress }) => (
           <Card key={label} className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
@@ -206,6 +187,14 @@ export default function Overview() {
             <div>
               <p className="font-display text-2xl font-extrabold tabular-nums text-ink-900">{value}</p>
               <p className="mt-0.5 text-sm text-ink-500">{label}</p>
+              {progress !== undefined && (
+                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+                  <div
+                    className="h-full rounded-full bg-brand-600"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
             </div>
           </Card>
         ))}

@@ -427,9 +427,14 @@ export default function Team() {
                       </span>
                     </td>
                     <td className="px-6 py-3.5">
-                      {employee.mustResetPassword && (
+                      {employee.mustResetPassword ? (
                         <span className="inline-flex rounded-full bg-[#fef3de] px-2.5 py-1 text-xs font-semibold text-[#9c6716]">
                           Reset pending
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-ink-50 px-2.5 py-1 text-xs font-semibold text-ink-400">
+                          <Check className="size-3" />
+                          All set
                         </span>
                       )}
                     </td>

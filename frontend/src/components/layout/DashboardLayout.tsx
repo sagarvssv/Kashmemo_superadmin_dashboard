@@ -4,6 +4,7 @@ import {
   LayoutGrid,
   Wallet,
   ClipboardCheck,
+  ReceiptText,
   BarChart3,
   Users,
   Settings,
@@ -17,7 +18,14 @@ import { Logo } from '../ui/Logo'
 import { useAuthStore } from '../../store/authStore'
 import { logoutRequest } from '../../lib/api'
 
-const navItems = [
+interface NavItem {
+  to: string
+  label: string
+  icon: typeof LayoutGrid
+  end?: boolean
+}
+
+const baseNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Overview', icon: LayoutGrid, end: true },
   { to: '/dashboard/petty-cash', label: 'Petty Cash', icon: Wallet },
   { to: '/dashboard/approvals', label: 'Approvals', icon: ClipboardCheck },
@@ -25,6 +33,8 @@ const navItems = [
   { to: '/dashboard/team', label: 'Team', icon: Users },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
+
+const ticketsNavItem: NavItem = { to: '/dashboard/tickets', label: 'Tickets', icon: ReceiptText }
 
 const planLabel: Record<string, string> = {
   STARTER: 'Starter plan',
@@ -38,6 +48,11 @@ export function DashboardLayout() {
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+
+  const canManageTickets = user?.role === 'CEO' || user?.role === 'HR'
+  const navItems = canManageTickets
+    ? [...baseNavItems.slice(0, 2), ticketsNavItem, ...baseNavItems.slice(2)]
+    : baseNavItems
 
   const handleLogout = () => {
     logoutRequest().catch(() => {})
