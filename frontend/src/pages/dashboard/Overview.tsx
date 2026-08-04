@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Receipt, Users, Wallet } from 'lucide-react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Radio, Receipt, Users, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Select } from '../../components/ui/Select'
 import { useAuthStore } from '../../store/authStore'
@@ -10,6 +10,8 @@ import { useCurrencyStore } from '../../store/currencyStore'
 import { INDUSTRY_TYPES } from '../../lib/constants'
 import { listEmployees, type Employee } from '../../lib/employees'
 import { getDashboardSummary, type DashboardSummary } from '../../lib/dashboard'
+import { type ActivityLogEntry } from '../../lib/activity'
+import { connectSocket, disconnectSocket } from '../../lib/socket'
 import { formatCurrency, MONTH_NAMES } from '../../lib/format'
 import { extractErrorMessage } from '../../lib/api'
 
@@ -25,18 +27,14 @@ const flowData = [
   { month: 'Jul', replenished: 62500, spent: 41900 },
 ]
 
-const activity = [
-  { name: 'Office supplies — Andheri branch', by: 'Rohit Sharma', amount: 3200, status: 'Approved' },
-  { name: 'Client lunch reimbursement', by: 'Priya Nair', amount: 1850, status: 'Pending' },
-  { name: 'Courier & logistics', by: 'Amit Verma', amount: 960, status: 'Approved' },
-  { name: 'Emergency generator fuel', by: 'Sana Khan', amount: 5400, status: 'Rejected' },
-  { name: 'Stationery restock', by: 'Rohit Sharma', amount: 1120, status: 'Pending' },
-]
+const MAX_ACTIVITY_ROWS = 8
 
-const statusStyles: Record<string, string> = {
-  Approved: 'bg-[#e6f6e6] text-[#0ca30c]',
-  Pending: 'bg-[#fef3de] text-[#9c6716]',
-  Rejected: 'bg-[#fbe9e9] text-[#d03b3b]',
+function activityTypeLabel(type: string) {
+  return type
+    .toLowerCase()
+    .split('_')
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 export default function Overview() {
@@ -54,6 +52,20 @@ export default function Overview() {
   const [budgetYear, setBudgetYear] = useState(now.getFullYear())
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(true)
+
+  const [liveActivity, setLiveActivity] = useState<ActivityLogEntry[]>([])
+
+  useEffect(() => {
+    const socket = connectSocket()
+    const handleActivity = (entry: ActivityLogEntry) => {
+      setLiveActivity((prev) => [entry, ...prev].slice(0, MAX_ACTIVITY_ROWS))
+    }
+    socket.on('activity', handleActivity)
+    return () => {
+      socket.off('activity', handleActivity)
+      disconnectSocket()
+    }
+  }, [])
 
   useEffect(() => {
     listEmployees({ page: 1, limit: 5 })
@@ -274,40 +286,49 @@ export default function Overview() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card className="!p-0 overflow-hidden xl:col-span-2">
-          <div className="p-6 pb-0">
-            <h2 className="font-display text-lg font-bold text-ink-900">Recent activity</h2>
-            <p className="text-sm text-ink-500">Latest petty cash requests across your organization</p>
+          <div className="flex items-center justify-between p-6 pb-0">
+            <div>
+              <h2 className="font-display text-lg font-bold text-ink-900">Recent activity</h2>
+              <p className="text-sm text-ink-500">Live updates across your organization</p>
+            </div>
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-[#1baf7a]">
+              <Radio className="size-3.5" />
+              Live
+            </span>
           </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse">
-              <thead>
-                <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-6 py-3 font-semibold">Description</th>
-                  <th className="px-6 py-3 font-semibold">Requested by</th>
-                  <th className="px-6 py-3 font-semibold">Amount</th>
-                  <th className="px-6 py-3 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activity.map((row) => (
-                  <tr key={row.name} className="border-b border-ink-100 last:border-0">
-                    <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{row.name}</td>
-                    <td className="px-6 py-3.5 text-sm text-ink-500">{row.by}</td>
-                    <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">
-                      {formatCurrency(row.amount, currencyCode)}
-                    </td>
-                    <td className="px-6 py-3.5">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[row.status]}`}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
+          {liveActivity.length === 0 ? (
+            <div className="flex flex-col items-center gap-1 py-14 text-center">
+              <p className="text-sm font-medium text-ink-600">Waiting for activity…</p>
+              <p className="text-sm text-ink-400">Budget allocations and ticket updates will show up here as they happen.</p>
+            </div>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse">
+                <thead>
+                  <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                    <th className="px-6 py-3 font-semibold">Activity</th>
+                    <th className="px-6 py-3 font-semibold">Type</th>
+                    <th className="px-6 py-3 font-semibold">Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {liveActivity.map((entry) => (
+                    <tr key={entry.id} className="border-b border-ink-100 last:border-0">
+                      <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{entry.message}</td>
+                      <td className="px-6 py-3.5">
+                        <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">
+                          {activityTypeLabel(entry.type)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5 text-sm text-ink-500">
+                        {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <div className="h-2" />
         </Card>
 
