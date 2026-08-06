@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Building2, Loader2, Pencil, PiggyBank, Plus, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
@@ -11,6 +11,7 @@ import { extractErrorMessage } from '../../lib/api'
 import { formatCurrency, MONTH_NAMES } from '../../lib/format'
 import { listDepartmentsFromEmployees, type DepartmentOption } from '../../lib/departments'
 import { allocateBudget, getOrganizationBudget, type OrganizationBudgetRow } from '../../lib/budget'
+import { connectSocket } from '../../lib/socket'
 import { useCurrencyStore } from '../../store/currencyStore'
 
 const now = new Date()
@@ -57,6 +58,18 @@ export default function PettyCash() {
   useEffect(() => {
     fetchBudget()
   }, [month, year])
+
+  const fetchBudgetRef = useRef(fetchBudget)
+  fetchBudgetRef.current = fetchBudget
+
+  useEffect(() => {
+    const socket = connectSocket()
+    const handleBudgetUpdate = () => fetchBudgetRef.current()
+    socket.on('budget:update', handleBudgetUpdate)
+    return () => {
+      socket.off('budget:update', handleBudgetUpdate)
+    }
+  }, [])
 
   const rows = departments.map((dept) => {
     const budget = budgetRows.find((b) => b.department.id === dept.id)

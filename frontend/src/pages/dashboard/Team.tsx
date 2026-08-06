@@ -41,6 +41,7 @@ import {
   type EmployeeDetails,
   type Pagination,
 } from '../../lib/employees'
+import { connectSocket } from '../../lib/socket'
 
 const statusStyles: Record<string, string> = {
   ACTIVE: 'bg-[#e6f6e6] text-[#0ca30c]',
@@ -160,6 +161,18 @@ export default function Team() {
   useEffect(() => {
     fetchEmployees()
   }, [page, limit, search, designation, statusFilter, roleFilter])
+
+  const fetchEmployeesRef = useRef(fetchEmployees)
+  fetchEmployeesRef.current = fetchEmployees
+
+  useEffect(() => {
+    const socket = connectSocket()
+    const handleEmployeeUpdate = () => fetchEmployeesRef.current()
+    socket.on('employee:update', handleEmployeeUpdate)
+    return () => {
+      socket.off('employee:update', handleEmployeeUpdate)
+    }
+  }, [])
 
   const updateForm = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }))

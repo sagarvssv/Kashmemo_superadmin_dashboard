@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Banknote, Eye, Loader2, ReceiptText } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
@@ -12,6 +12,7 @@ import { formatCurrency } from '../../lib/format'
 import { useAuthStore } from '../../store/authStore'
 import { useCurrencyStore } from '../../store/currencyStore'
 import { disburseTicket, listTickets, type Ticket, type TicketStatus } from '../../lib/tickets'
+import { connectSocket } from '../../lib/socket'
 
 const STATUS_FILTERS: Array<{ value: TicketStatus | ''; label: string }> = [
   { value: '', label: 'All statuses' },
@@ -63,6 +64,28 @@ export default function Tickets() {
       .catch((err) => toast.error(extractErrorMessage(err)))
       .finally(() => setLoading(false))
   }, [statusFilter, canManage])
+
+  const statusFilterRef = useRef(statusFilter)
+  statusFilterRef.current = statusFilter
+
+  useEffect(() => {
+    if (!canManage) return
+    const socket = connectSocket()
+    const handleStatusUpdate = (payload: { ticket: Ticket }) => {
+      setTickets((prev) => prev.map((t) => (t.id === payload.ticket.id ? payload.ticket : t)))
+    }
+    const handleCreated = (payload: { ticket: Ticket }) => {
+      const filter = statusFilterRef.current
+      if (filter && filter !== payload.ticket.status) return
+      setTickets((prev) => [payload.ticket, ...prev])
+    }
+    socket.on('ticket:status-update', handleStatusUpdate)
+    socket.on('ticket:created', handleCreated)
+    return () => {
+      socket.off('ticket:status-update', handleStatusUpdate)
+      socket.off('ticket:created', handleCreated)
+    }
+  }, [canManage])
 
   const handleLoadMore = () => {
     if (!nextCursor) return

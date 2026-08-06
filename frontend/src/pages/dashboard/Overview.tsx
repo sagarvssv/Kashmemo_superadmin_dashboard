@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock3, Radio, Receipt, Users, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/Select'
 import { useAuthStore } from '../../store/authStore'
 import { useCurrencyStore } from '../../store/currencyStore'
 import { INDUSTRY_TYPES } from '../../lib/constants'
 import { listEmployees, type Employee } from '../../lib/employees'
 import { getDashboardSummary, type DashboardSummary } from '../../lib/dashboard'
-import { type ActivityLogEntry } from '../../lib/activity'
-import { connectSocket, disconnectSocket } from '../../lib/socket'
+import { listRecentActivities, type ActivityLogEntry } from '../../lib/activity'
+import { connectSocket } from '../../lib/socket'
 import { formatCurrency, MONTH_NAMES } from '../../lib/format'
 import { extractErrorMessage } from '../../lib/api'
 
@@ -54,16 +55,42 @@ export default function Overview() {
   const [summaryLoading, setSummaryLoading] = useState(true)
 
   const [liveActivity, setLiveActivity] = useState<ActivityLogEntry[]>([])
+  const [activityNextCursor, setActivityNextCursor] = useState<string | null>(null)
+  const [loadingMoreActivity, setLoadingMoreActivity] = useState(false)
 
   useEffect(() => {
+    listRecentActivities({ limit: MAX_ACTIVITY_ROWS })
+      .then((res) => {
+        setLiveActivity(res.data)
+        setActivityNextCursor(res.nextCursor)
+      })
+      .catch(() => setLiveActivity([]))
+  }, [])
+
+  const handleLoadMoreActivity = () => {
+    if (!activityNextCursor) return
+    setLoadingMoreActivity(true)
+    listRecentActivities({ limit: MAX_ACTIVITY_ROWS, cursor: activityNextCursor })
+      .then((res) => {
+        setLiveActivity((prev) => [...prev, ...res.data])
+        setActivityNextCursor(res.nextCursor)
+      })
+      .catch((err) => toast.error(extractErrorMessage(err)))
+      .finally(() => setLoadingMoreActivity(false))
+  }
+
+  useEffect(() => {
+    // connectSocket() is idempotent — DashboardLayout owns the actual
+    // connect/disconnect lifecycle for the whole dashboard session; this
+    // just guarantees a socket exists before attaching the listener,
+    // regardless of effect mount order between parent and child.
     const socket = connectSocket()
     const handleActivity = (entry: ActivityLogEntry) => {
-      setLiveActivity((prev) => [entry, ...prev].slice(0, MAX_ACTIVITY_ROWS))
+      setLiveActivity((prev) => [entry, ...prev])
     }
     socket.on('activity', handleActivity)
     return () => {
       socket.off('activity', handleActivity)
-      disconnectSocket()
     }
   }, [])
 
@@ -80,7 +107,7 @@ export default function Overview() {
       .finally(() => setEmployeesLoading(false))
   }, [])
 
-  useEffect(() => {
+  const fetchSummary = () => {
     setSummaryLoading(true)
     getDashboardSummary(budgetMonth, budgetYear)
       .then((res) => setSummary(res.data))
@@ -89,7 +116,22 @@ export default function Overview() {
         setSummary(null)
       })
       .finally(() => setSummaryLoading(false))
+  }
+  const fetchSummaryRef = useRef(fetchSummary)
+  fetchSummaryRef.current = fetchSummary
+
+  useEffect(() => {
+    fetchSummary()
   }, [budgetMonth, budgetYear])
+
+  useEffect(() => {
+    const socket = connectSocket()
+    const handleDashboardUpdate = () => fetchSummaryRef.current()
+    socket.on('dashboard:update', handleDashboardUpdate)
+    return () => {
+      socket.off('dashboard:update', handleDashboardUpdate)
+    }
+  }, [])
 
   const budgetProgress =
     summary && summary.budget.totalAllocatedBudget > 0
@@ -302,7 +344,7 @@ export default function Overview() {
               <p className="text-sm text-ink-400">Budget allocations and ticket updates will show up here as they happen.</p>
             </div>
           ) : (
-            <div className="mt-4 overflow-x-auto">
+            <div className="mt-4 max-h-[420px] overflow-y-auto overflow-x-auto">
               <table className="w-full min-w-[560px] border-collapse">
                 <thead>
                   <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
@@ -327,6 +369,18 @@ export default function Overview() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {activityNextCursor && (
+            <div className="flex justify-center border-t border-ink-100 py-3">
+              <Button
+                variant="secondary"
+                onClick={handleLoadMoreActivity}
+                loading={loadingMoreActivity}
+                className="!px-4 !py-2 text-sm"
+              >
+                Load more
+              </Button>
             </div>
           )}
           <div className="h-2" />
