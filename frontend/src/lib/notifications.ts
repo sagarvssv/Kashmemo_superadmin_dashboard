@@ -24,6 +24,12 @@ interface ListNotificationsResult {
   nextCursor: string | null
 }
 
+export function getNotifications(params: ListNotificationsParams = {}) {
+  return api
+    .get<{ status: string; data: Notification[]; nextCursor: string | null }>('/notifications', { params })
+    .then((res) => res.data)
+}
+
 export function listNotifications(params: ListNotificationsParams = {}) {
   return api.get<ListNotificationsResult>('/notifications', { params }).then((res) => res.data)
 }

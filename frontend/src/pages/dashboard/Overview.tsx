@@ -126,10 +126,20 @@ export default function Overview() {
 
   useEffect(() => {
     const socket = connectSocket()
+    // The backend doesn't emit a single generic 'dashboard:update' —
+    // it emits per-domain events (tickets, budget) that each affect the
+    // summary numbers here, so refetch on any of them. 'dashboard:update'
+    // is kept too in case a generic emit is added later.
     const handleDashboardUpdate = () => fetchSummaryRef.current()
     socket.on('dashboard:update', handleDashboardUpdate)
+    socket.on('ticket:status-update', handleDashboardUpdate)
+    socket.on('ticket:created', handleDashboardUpdate)
+    socket.on('budget:update', handleDashboardUpdate)
     return () => {
       socket.off('dashboard:update', handleDashboardUpdate)
+      socket.off('ticket:status-update', handleDashboardUpdate)
+      socket.off('ticket:created', handleDashboardUpdate)
+      socket.off('budget:update', handleDashboardUpdate)
     }
   }, [])
 

@@ -42,6 +42,7 @@ import {
   type Pagination,
 } from '../../lib/employees'
 import { connectSocket } from '../../lib/socket'
+import { listDepartments, type DepartmentOption } from '../../lib/departments'
 
 const statusStyles: Record<string, string> = {
   ACTIVE: 'bg-[#e6f6e6] text-[#0ca30c]',
@@ -62,6 +63,7 @@ const statusLabels: Record<string, string> = {
 const roleStyles: Record<string, string> = {
   MANAGER: 'bg-brand-50 text-brand-700',
   HR: 'bg-gold-100 text-gold-700',
+  FINANCE_MANAGER: 'bg-[#e3f6ec] text-[#1a8f5e]',
   EMPLOYEE: 'bg-ink-100 text-ink-600',
 }
 
@@ -132,13 +134,28 @@ export default function Team() {
   const [designationInput, setDesignationInput] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
+  const [departments, setDepartments] = useState<DepartmentOption[]>([])
   const search = useDebouncedValue(searchInput, 350)
   const designation = useDebouncedValue(designationInput, 350)
-  const hasActiveFilters = !!(search || designation || statusFilter || roleFilter)
+  const hasActiveFilters = !!(search || designation || statusFilter || roleFilter || departmentFilter)
+
+  const fetchDepartments = () => {
+    listDepartments()
+      .then((res) => setDepartments(res.data))
+      .catch((err) => toast.error(extractErrorMessage(err)))
+  }
+
+  useEffect(() => {
+    fetchDepartments()
+  }, [])
+
+  const fetchDepartmentsRef = useRef(fetchDepartments)
+  fetchDepartmentsRef.current = fetchDepartments
 
   useEffect(() => {
     setPage(1)
-  }, [search, designation, statusFilter, roleFilter, limit])
+  }, [search, designation, statusFilter, roleFilter, departmentFilter, limit])
 
   const fetchEmployees = () => {
     setLoading(true)
@@ -149,6 +166,7 @@ export default function Team() {
       designation: designation || undefined,
       status: statusFilter || undefined,
       role: roleFilter || undefined,
+      departmentId: departmentFilter || undefined,
     })
       .then((res) => {
         setEmployees(res.data)
@@ -160,14 +178,17 @@ export default function Team() {
 
   useEffect(() => {
     fetchEmployees()
-  }, [page, limit, search, designation, statusFilter, roleFilter])
+  }, [page, limit, search, designation, statusFilter, roleFilter, departmentFilter])
 
   const fetchEmployeesRef = useRef(fetchEmployees)
   fetchEmployeesRef.current = fetchEmployees
 
   useEffect(() => {
     const socket = connectSocket()
-    const handleEmployeeUpdate = () => fetchEmployeesRef.current()
+    const handleEmployeeUpdate = () => {
+      fetchEmployeesRef.current()
+      fetchDepartmentsRef.current()
+    }
     socket.on('employee:update', handleEmployeeUpdate)
     return () => {
       socket.off('employee:update', handleEmployeeUpdate)
@@ -339,6 +360,18 @@ export default function Team() {
             </option>
           ))}
         </Select>
+        <Select
+          value={departmentFilter}
+          onChange={(e) => setDepartmentFilter(e.target.value)}
+          className="sm:max-w-[180px]"
+        >
+          <option value="">All departments ({departments.length})</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <Card className="!p-0 overflow-hidden">
@@ -363,12 +396,13 @@ export default function Team() {
           </div>
         ) : (
           <div className="overflow-x-auto overflow-y-visible">
-            <table className="w-full min-w-[880px] border-collapse">
+            <table className="w-full min-w-[980px] border-collapse">
               <thead>
                 <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                   <th className="px-6 py-3 font-semibold">Name</th>
                   <th className="px-6 py-3 font-semibold">Role</th>
                   <th className="px-6 py-3 font-semibold">Designation</th>
+                  <th className="px-6 py-3 font-semibold">Department</th>
                   <th className="px-6 py-3 font-semibold">Phone</th>
                   <th className="px-6 py-3 font-semibold">Status</th>
                   <th className="px-6 py-3 font-semibold">Access</th>
@@ -429,6 +463,7 @@ export default function Team() {
                         )}
                     </td>
                     <td className="px-6 py-3.5 text-sm text-ink-600">{employee.designation}</td>
+                    <td className="px-6 py-3.5 text-sm text-ink-600">{employee.department?.name ?? '—'}</td>
                     <td className="px-6 py-3.5 text-sm text-ink-600">{employee.phoneNumber ?? '—'}</td>
                     <td className="px-6 py-3.5">
                       <span

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Banknote, Eye, Loader2, ReceiptText } from 'lucide-react'
+import { Banknote, ClipboardCheck, Eye, Loader2 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Field } from '../../components/ui/Field'
+import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { CopyableField } from '../../components/ui/CopyableField'
 import { extractErrorMessage } from '../../lib/api'
@@ -38,10 +39,10 @@ const statusLabels: Record<TicketStatus, string> = {
 
 const LIMIT = 10
 
-export default function Tickets() {
+export default function Approvals() {
   const role = useAuthStore((state) => state.user?.role)
   const currencyCode = useCurrencyStore((state) => state.currencyCode)
-  const canManage = role === 'CEO' || role === 'HR'
+  const canManage = role === 'CEO' || role === 'HR' || role === 'FINANCE_MANAGER'
 
   const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('')
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -52,6 +53,8 @@ export default function Tickets() {
   const [viewTicket, setViewTicket] = useState<Ticket | null>(null)
   const [disburseTarget, setDisburseTarget] = useState<Ticket | null>(null)
   const [disbursing, setDisbursing] = useState(false)
+  const [disburseIdentifier, setDisburseIdentifier] = useState('')
+  const [disburseError, setDisburseError] = useState('')
 
   useEffect(() => {
     if (!canManage) return
@@ -72,7 +75,7 @@ export default function Tickets() {
     if (!canManage) return
     const socket = connectSocket()
     const handleStatusUpdate = (payload: { ticket: Ticket }) => {
-      setTickets((prev) => prev.map((t) => (t.id === payload.ticket.id ? payload.ticket : t)))
+      setTickets((prev) => prev.map((t) => (t.id === payload.ticket.id ? { ...t, ...payload.ticket } : t)))
     }
     const handleCreated = (payload: { ticket: Ticket }) => {
       const filter = statusFilterRef.current
@@ -99,14 +102,33 @@ export default function Tickets() {
       .finally(() => setLoadingMore(false))
   }
 
+  const openDisburse = (ticket: Ticket) => {
+    setDisburseTarget(ticket)
+    setDisburseIdentifier('')
+    setDisburseError('')
+  }
+
+  const closeDisburse = () => {
+    setDisburseTarget(null)
+    setDisburseIdentifier('')
+    setDisburseError('')
+  }
+
   const handleDisburse = async () => {
     if (!disburseTarget) return
+    const value = disburseIdentifier.trim()
+    if (!value) {
+      setDisburseError("Enter the recipient's email or phone number to confirm.")
+      return
+    }
+    const identifier = value.includes('@') ? { email: value } : { phoneNumber: value }
+
     setDisbursing(true)
     try {
-      const res = await disburseTicket(disburseTarget.id)
-      setTickets((prev) => prev.map((t) => (t.id === res.data.id ? res.data : t)))
+      const res = await disburseTicket(disburseTarget.id, identifier)
+      setTickets((prev) => prev.map((t) => (t.id === res.data.id ? { ...t, ...res.data } : t)))
       toast.success('Ticket disbursed.')
-      setDisburseTarget(null)
+      closeDisburse()
     } catch (err) {
       toast.error(extractErrorMessage(err))
     } finally {
@@ -118,10 +140,10 @@ export default function Tickets() {
     return (
       <Card className="flex flex-col items-center gap-3 py-20 text-center">
         <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-          <ReceiptText className="size-6" />
+          <ClipboardCheck className="size-6" />
         </span>
         <h2 className="font-display text-lg font-bold text-ink-900">Restricted</h2>
-        <p className="max-w-sm text-[15px] text-ink-500">Only the CEO or HR can review and disburse tickets.</p>
+        <p className="max-w-sm text-[15px] text-ink-500">Only the CEO, HR, or Finance Manager can review and disburse tickets.</p>
       </Card>
     )
   }
@@ -129,8 +151,8 @@ export default function Tickets() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-extrabold text-ink-900">Tickets</h1>
-        <p className="mt-1 text-[15px] text-ink-500">Review approved petty cash tickets and mark them disbursed.</p>
+        <h1 className="font-display text-2xl font-extrabold text-ink-900">Approvals</h1>
+        <p className="mt-1 text-[15px] text-ink-500">Review tickets and mark approved ones as disbursed.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -156,7 +178,7 @@ export default function Tickets() {
         ) : tickets.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
             <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-              <ReceiptText className="size-6" />
+              <ClipboardCheck className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No tickets found</h2>
             <p className="max-w-sm text-[15px] text-ink-500">
@@ -207,7 +229,7 @@ export default function Tickets() {
                           View
                         </Button>
                         {ticket.status === 'APPROVED' && (
-                          <Button onClick={() => setDisburseTarget(ticket)} className="!px-3 !py-1.5 text-sm">
+                          <Button onClick={() => openDisburse(ticket)} className="!px-3 !py-1.5 text-sm">
                             <Banknote className="size-3.5" />
                             Disburse
                           </Button>
@@ -280,7 +302,7 @@ export default function Tickets() {
               <div className="mt-2 flex justify-end">
                 <Button
                   onClick={() => {
-                    setDisburseTarget(viewTicket)
+                    openDisburse(viewTicket)
                     setViewTicket(null)
                   }}
                 >
@@ -293,17 +315,41 @@ export default function Tickets() {
         )}
       </Modal>
 
-      <ConfirmDialog
-        open={!!disburseTarget}
-        title="Disburse ticket"
-        description={`Mark "${disburseTarget?.purpose ?? ''}" (${
-          disburseTarget ? formatCurrency(disburseTarget.amount, currencyCode) : ''
-        }) as disbursed? This can't be undone.`}
-        confirmLabel="Disburse"
-        loading={disbursing}
-        onConfirm={handleDisburse}
-        onCancel={() => setDisburseTarget(null)}
-      />
+      <Modal open={!!disburseTarget} onClose={closeDisburse} title="Disburse ticket" maxWidth="max-w-sm">
+        <p className="text-[15px] text-ink-500">
+          Mark "{disburseTarget?.purpose ?? ''}" (
+          {disburseTarget ? formatCurrency(disburseTarget.amount, currencyCode) : ''}) as disbursed? This can't be
+          undone.
+        </p>
+        <Field
+          label="Recipient's email or phone number"
+          htmlFor="disburse-identifier"
+          error={disburseError}
+          className="mt-4"
+        >
+          <Input
+            id="disburse-identifier"
+            value={disburseIdentifier}
+            onChange={(e) => {
+              setDisburseIdentifier(e.target.value)
+              setDisburseError('')
+            }}
+            placeholder="e.g. jane@company.com or 9876543210"
+            hasError={!!disburseError}
+          />
+        </Field>
+        <p className="mt-1.5 text-xs text-ink-400">
+          Used to confirm the payout goes to the employee who raised this ticket.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" onClick={closeDisburse} disabled={disbursing}>
+            Cancel
+          </Button>
+          <Button onClick={handleDisburse} loading={disbursing}>
+            Disburse
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }

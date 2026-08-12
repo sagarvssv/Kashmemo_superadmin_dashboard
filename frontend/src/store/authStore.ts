@@ -12,6 +12,7 @@ export interface SessionUser {
   isEmailVerified: boolean
   companyName: string
   plan: Plan
+  departmentId?: string | null
 }
 
 export interface OrgProfile {

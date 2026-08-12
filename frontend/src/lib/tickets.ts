@@ -40,6 +40,13 @@ export function getTicketById(ticketId: string) {
   return api.get<{ status: string; data: Ticket }>(`/ticket/${ticketId}`).then((res) => res.data)
 }
 
-export function disburseTicket(ticketId: string) {
-  return api.patch<{ status: string; data: Ticket }>(`/ticket/disburse-ticket/${ticketId}`).then((res) => res.data)
+export interface DisburseIdentifier {
+  phoneNumber?: string
+  email?: string
+}
+
+export function disburseTicket(ticketId: string, identifier: DisburseIdentifier) {
+  return api
+    .patch<{ status: string; data: Ticket }>(`/ticket/disburse-ticket/${ticketId}`, identifier)
+    .then((res) => res.data)
 }

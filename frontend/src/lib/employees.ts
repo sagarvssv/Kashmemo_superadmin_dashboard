@@ -12,7 +12,7 @@ export interface Employee {
   isEmailVerified: boolean
   mustResetPassword: boolean
   source?: string | null
-  departmentId?: string | null
+  department: { id: string; name: string } | null
   createdAt: string
 }
 
@@ -38,6 +38,7 @@ export interface ListEmployeesParams {
   status?: string
   designation?: string
   role?: string
+  departmentId?: string
 }
 
 export function listEmployees(params: ListEmployeesParams = {}) {
@@ -93,7 +94,7 @@ export function deleteEmployee(employeeId: string) {
     .then((res) => res.data)
 }
 
-export const ASSIGNABLE_ROLES = ['MANAGER', 'HR', 'EMPLOYEE'] as const
+export const ASSIGNABLE_ROLES = ['MANAGER', 'HR', 'FINANCE_MANAGER', 'EMPLOYEE'] as const
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number]
 
 export function changeEmployeeRole(employeeId: string, role: AssignableRole) {

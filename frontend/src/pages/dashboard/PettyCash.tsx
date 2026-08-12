@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Building2, Loader2, Pencil, PiggyBank, Plus, Wallet } from 'lucide-react'
+import { AlertTriangle, Building2, Loader2, Pencil, PiggyBank, Plus, Search, Wallet } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
@@ -9,9 +9,10 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { extractErrorMessage } from '../../lib/api'
 import { formatCurrency, MONTH_NAMES } from '../../lib/format'
-import { listDepartmentsFromEmployees, type DepartmentOption } from '../../lib/departments'
+import { listDepartments, type DepartmentOption } from '../../lib/departments'
 import { allocateBudget, getOrganizationBudget, type OrganizationBudgetRow } from '../../lib/budget'
 import { connectSocket } from '../../lib/socket'
+import { useAuthStore } from '../../store/authStore'
 import { useCurrencyStore } from '../../store/currencyStore'
 
 const now = new Date()
@@ -26,6 +27,8 @@ interface FormState {
 
 export default function PettyCash() {
   const currencyCode = useCurrencyStore((state) => state.currencyCode)
+  const role = useAuthStore((state) => state.user?.role)
+  const canAllocate = role === 'CEO' || role === 'FINANCE_MANAGER'
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
 
@@ -34,18 +37,27 @@ export default function PettyCash() {
   const [budgetRows, setBudgetRows] = useState<OrganizationBudgetRow[]>([])
   const [budgetLoading, setBudgetLoading] = useState(true)
 
+  const [searchInput, setSearchInput] = useState('')
+
   const [modalOpen, setModalOpen] = useState(false)
   const [lockDepartment, setLockDepartment] = useState(false)
   const [form, setForm] = useState<FormState>({ departmentId: '', amount: '', month, year })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    listDepartmentsFromEmployees()
-      .then(setDepartments)
+  const fetchDepartments = () => {
+    listDepartments()
+      .then((res) => setDepartments(res.data))
       .catch((err) => toast.error(extractErrorMessage(err)))
       .finally(() => setDepartmentsLoading(false))
+  }
+
+  useEffect(() => {
+    fetchDepartments()
   }, [])
+
+  const fetchDepartmentsRef = useRef(fetchDepartments)
+  fetchDepartmentsRef.current = fetchDepartments
 
   const fetchBudget = () => {
     setBudgetLoading(true)
@@ -65,19 +77,25 @@ export default function PettyCash() {
   useEffect(() => {
     const socket = connectSocket()
     const handleBudgetUpdate = () => fetchBudgetRef.current()
+    const handleEmployeeUpdate = () => fetchDepartmentsRef.current()
     socket.on('budget:update', handleBudgetUpdate)
+    socket.on('employee:update', handleEmployeeUpdate)
     return () => {
       socket.off('budget:update', handleBudgetUpdate)
+      socket.off('employee:update', handleEmployeeUpdate)
     }
   }, [])
 
-  const rows = departments.map((dept) => {
+  const allRows = departments.map((dept) => {
     const budget = budgetRows.find((b) => b.department.id === dept.id)
     return { department: dept, amount: budget?.amount ?? null }
   })
 
   const totalAllocated = budgetRows.reduce((sum, b) => sum + Number(b.amount), 0)
   const fundedCount = budgetRows.length
+  const unfundedCount = departments.length - fundedCount
+
+  const rows = allRows.filter((r) => r.department.name.toLowerCase().includes(searchInput.trim().toLowerCase()))
 
   const openAllocate = (dept?: DepartmentOption, existingAmount?: number | string) => {
     setLockDepartment(!!dept)
@@ -134,10 +152,12 @@ export default function PettyCash() {
           <h1 className="font-display text-2xl font-extrabold text-ink-900">Petty Cash</h1>
           <p className="mt-1 text-[15px] text-ink-500">Allocate and track monthly budgets by department.</p>
         </div>
-        <Button onClick={() => openAllocate()} disabled={departments.length === 0}>
-          <Plus className="size-4" />
-          Allocate budget
-        </Button>
+        {canAllocate && (
+          <Button onClick={() => openAllocate()} disabled={departments.length === 0}>
+            <Plus className="size-4" />
+            Allocate budget
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -165,9 +185,33 @@ export default function PettyCash() {
             <p className="mt-0.5 text-sm text-ink-500">Departments funded this month</p>
           </div>
         </Card>
+        <Card className="flex items-center gap-4">
+          <span
+            className={`flex size-11 items-center justify-center rounded-xl ${
+              unfundedCount > 0 ? 'bg-[#fbe9e9] text-[#d03b3b]' : 'bg-[#e3f6ec] text-[#1a8f5e]'
+            }`}
+          >
+            <AlertTriangle className="size-5" />
+          </span>
+          <div>
+            <p className="font-display text-2xl font-extrabold tabular-nums text-ink-900">{unfundedCount}</p>
+            <p className="mt-0.5 text-sm text-ink-500">
+              {unfundedCount > 0 ? 'Departments still need a budget' : 'All departments funded'}
+            </p>
+          </div>
+        </Card>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-400" />
+          <Input
+            placeholder="Search departments"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-10"
+          />
+        </div>
         <Select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="max-w-[160px]">
           {MONTH_NAMES.map((name, i) => (
             <option key={name} value={i + 1}>
@@ -200,38 +244,65 @@ export default function PettyCash() {
               Add employees with a department from the Team page to start allocating petty cash budgets.
             </p>
           </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-20 text-center">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+              <Search className="size-6" />
+            </span>
+            <h2 className="font-display text-lg font-bold text-ink-900">No matching departments</h2>
+            <p className="max-w-sm text-[15px] text-ink-500">Try a different search term.</p>
+          </div>
         ) : (
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                 <th className="px-6 py-3 font-semibold">Department</th>
                 <th className="px-6 py-3 font-semibold">Allocated amount</th>
+                <th className="px-6 py-3 font-semibold">Share of total</th>
                 <th className="px-6 py-3 font-semibold" />
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ department, amount }) => (
+              {rows.map(({ department, amount }) => {
+                const pct = amount != null && totalAllocated > 0 ? (Number(amount) / totalAllocated) * 100 : 0
+                return (
                 <tr key={department.id} className="border-b border-ink-100 last:border-0">
                   <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{department.name}</td>
                   <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">
                     {amount != null ? (
                       formatCurrency(amount, currencyCode)
                     ) : (
-                      <span className="font-normal text-ink-400">Not allocated</span>
+                      <span className="inline-flex items-center gap-1.5 font-normal text-[#d03b3b]">
+                        <AlertTriangle className="size-3.5" />
+                        Not allocated
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-3.5">
+                    {amount != null && (
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-ink-100">
+                          <div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs tabular-nums text-ink-400">{pct.toFixed(0)}%</span>
+                      </div>
                     )}
                   </td>
                   <td className="px-6 py-3.5 text-right">
-                    <Button
-                      variant="secondary"
-                      onClick={() => openAllocate(department, amount ?? undefined)}
-                      className="!px-3 !py-1.5 text-sm"
-                    >
-                      <Pencil className="size-3.5" />
-                      {amount != null ? 'Edit' : 'Allocate'}
-                    </Button>
+                    {canAllocate && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => openAllocate(department, amount ?? undefined)}
+                        className="!px-3 !py-1.5 text-sm"
+                      >
+                        <Pencil className="size-3.5" />
+                        {amount != null ? 'Edit' : 'Allocate'}
+                      </Button>
+                    )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}

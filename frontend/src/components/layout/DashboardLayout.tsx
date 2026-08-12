@@ -4,38 +4,19 @@ import {
   LayoutGrid,
   Wallet,
   ClipboardCheck,
-  ReceiptText,
   BarChart3,
   Users,
   Settings,
-  Bell,
   ChevronDown,
   LogOut,
   Menu,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { Logo } from '../ui/Logo'
+import { NotificationBell } from './NotificationBell'
 import { useAuthStore } from '../../store/authStore'
 import { logoutRequest } from '../../lib/api'
 import { connectSocket, disconnectSocket } from '../../lib/socket'
-import {
-  getUnreadNotificationCount,
-  listNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-  type Notification,
-} from '../../lib/notifications'
-
-function timeAgo(iso: string) {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
-  if (seconds < 60) return 'Just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
 
 interface NavItem {
   to: string
@@ -47,13 +28,12 @@ interface NavItem {
 const baseNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Overview', icon: LayoutGrid, end: true },
   { to: '/dashboard/petty-cash', label: 'Petty Cash', icon: Wallet },
-  { to: '/dashboard/approvals', label: 'Approvals', icon: ClipboardCheck },
   { to: '/dashboard/reports', label: 'Reports', icon: BarChart3 },
   { to: '/dashboard/team', label: 'Team', icon: Users },
   { to: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
-const ticketsNavItem: NavItem = { to: '/dashboard/tickets', label: 'Tickets', icon: ReceiptText }
+const approvalsNavItem: NavItem = { to: '/dashboard/approvals', label: 'Approvals', icon: ClipboardCheck }
 
 const planLabel: Record<string, string> = {
   STARTER: 'Starter plan',
@@ -67,49 +47,16 @@ export function DashboardLayout() {
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
 
-  const canManageTickets = user?.role === 'CEO' || user?.role === 'HR'
+  const canManageTickets = user?.role === 'CEO' || user?.role === 'HR' || user?.role === 'FINANCE_MANAGER'
   const navItems = canManageTickets
-    ? [...baseNavItems.slice(0, 2), ticketsNavItem, ...baseNavItems.slice(2)]
+    ? [...baseNavItems.slice(0, 2), approvalsNavItem, ...baseNavItems.slice(2)]
     : baseNavItems
 
   useEffect(() => {
-    const socket = connectSocket()
-    const handleNotification = (entry: Notification) => {
-      setNotifications((prev) => [entry, ...prev].slice(0, 10))
-      setUnreadCount((prev) => prev + 1)
-    }
-    socket.on('notification', handleNotification)
-    return () => {
-      socket.off('notification', handleNotification)
-      disconnectSocket()
-    }
+    connectSocket()
+    return () => disconnectSocket()
   }, [])
-
-  useEffect(() => {
-    listNotifications({ limit: 10 })
-      .then((res) => setNotifications(res.data))
-      .catch(() => setNotifications([]))
-    getUnreadNotificationCount()
-      .then((res) => setUnreadCount(res.data))
-      .catch(() => setUnreadCount(0))
-  }, [])
-
-  const handleMarkRead = (notification: Notification) => {
-    if (notification.isRead) return
-    setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n)))
-    setUnreadCount((prev) => Math.max(0, prev - 1))
-    markNotificationRead(notification.id).catch(() => {})
-  }
-
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-    setUnreadCount(0)
-    markAllNotificationsRead().catch(() => {})
-  }
 
   const handleLogout = () => {
     logoutRequest().catch(() => {})
@@ -201,58 +148,7 @@ export function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-4">
-            <div className="relative">
-              <button
-                onClick={() => setNotifOpen((o) => !o)}
-                className="relative rounded-full p-2.5 text-ink-500 hover:bg-ink-100"
-              >
-                <Bell className="size-[18px]" />
-                {unreadCount > 0 && (
-                  <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-gold-400 text-[10px] font-bold text-ink-900">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {notifOpen && (
-                <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-xl border border-ink-200 bg-white p-1.5 shadow-lift">
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <p className="text-sm font-semibold text-ink-900">Notifications</p>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-xs font-semibold text-brand-700 hover:underline"
-                      >
-                        Mark all as read
-                      </button>
-                    )}
-                  </div>
-                  <div className="my-1 h-px bg-ink-100" />
-                  <div className="max-h-80 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <p className="px-3 py-6 text-center text-sm text-ink-400">No notifications yet.</p>
-                    ) : (
-                      notifications.map((n) => (
-                        <button
-                          key={n.id}
-                          onClick={() => handleMarkRead(n)}
-                          className={clsx(
-                            'flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-ink-50',
-                            !n.isRead && 'bg-brand-50/60',
-                          )}
-                        >
-                          {!n.isRead && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-600" />}
-                          <span className={clsx('min-w-0', n.isRead && 'pl-3.5')}>
-                            <span className="block text-sm text-ink-800">{n.message}</span>
-                            <span className="block text-xs text-ink-400">{timeAgo(n.createdAt)}</span>
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell />
 
             <div className="relative">
               <button
