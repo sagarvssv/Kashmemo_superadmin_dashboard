@@ -6,5 +6,5 @@ export interface DepartmentOption {
 }
 
 export function listDepartments() {
-  return api.get<{ status: string; data: DepartmentOption[] }>('/get-department-list').then((res) => res.data)
+  return api.get<{ status: string; data: DepartmentOption[] }>('/get-departmentList').then((res) => res.data)
 }

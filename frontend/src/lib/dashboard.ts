@@ -1,6 +1,16 @@
 import { api } from './api'
 import type { Ticket } from './tickets'
 
+export interface DepartmentBudgetSummary {
+  departmentId: { id: string; name: string }
+  month: number
+  year: number
+  totalAllocated: number
+  spent: number
+  remaining: number
+  hasBudgetSet: boolean
+}
+
 export interface DashboardSummary {
   month: number
   year: number
@@ -13,10 +23,12 @@ export interface DashboardSummary {
   }
   tickets: {
     PENDING: number
+    PARTIALLY_APPROVED?: number
     APPROVED: number
     DISBURSED: number
     REJECTED: number
   }
+  departments: DepartmentBudgetSummary[]
 }
 
 export function getDashboardSummary(month: number, year: number) {

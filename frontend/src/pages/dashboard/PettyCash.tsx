@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AlertTriangle, Building2, Loader2, Pencil, PiggyBank, Plus, Search, Wallet } from 'lucide-react'
+import { ResponsiveContainer, Tooltip, Treemap } from 'recharts'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
@@ -17,6 +18,41 @@ import { useCurrencyStore } from '../../store/currencyStore'
 
 const now = new Date()
 const YEAR_OPTIONS = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, now.getFullYear() + 2]
+
+// Fixed hue order, validated CVD-safe (see index.css --chart-1..5 / dataviz skill).
+// Top 4 departments by allocation keep their own hue; the long tail shares one
+// neutral fill (still its own tile + label) rather than generating more hues.
+const CHART_COLORS = ['#17a768', '#c2831c', '#2f5fbf', '#b23a6b', '#7d3fae']
+const OTHER_COLOR = '#c3cad6'
+
+interface TreemapNodeProps {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  name?: string
+  amountLabel?: string
+  fill?: string
+}
+
+function TreemapNode({ x = 0, y = 0, width = 0, height = 0, name, amountLabel, fill }: TreemapNodeProps) {
+  const showLabel = width > 74 && height > 34
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} fill={fill} stroke="#fff" strokeWidth={2} rx={6} />
+      {showLabel && (
+        <>
+          <text x={x + 10} y={y + 20} fontSize={12} fontWeight={600} fill="#fff">
+            {name}
+          </text>
+          <text x={x + 10} y={y + 36} fontSize={11} fill="rgba(255,255,255,0.85)">
+            {amountLabel}
+          </text>
+        </>
+      )}
+    </g>
+  )
+}
 
 interface FormState {
   departmentId: string
@@ -97,6 +133,15 @@ export default function PettyCash() {
 
   const rows = allRows.filter((r) => r.department.name.toLowerCase().includes(searchInput.trim().toLowerCase()))
 
+  const treemapData = [...budgetRows]
+    .sort((a, b) => Number(b.amount) - Number(a.amount))
+    .map((b, i) => ({
+      name: b.department.name,
+      size: Number(b.amount),
+      fill: i < CHART_COLORS.length ? CHART_COLORS[i] : OTHER_COLOR,
+      amountLabel: formatCurrency(Number(b.amount), currencyCode),
+    }))
+
   const openAllocate = (dept?: DepartmentOption, existingAmount?: number | string) => {
     setLockDepartment(!!dept)
     setForm({
@@ -161,8 +206,8 @@ export default function PettyCash() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Card className="flex items-center gap-4">
-          <span className="flex size-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+        <Card interactive className="flex items-center gap-4">
+          <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
             <Wallet className="size-5" />
           </span>
           <div>
@@ -174,8 +219,8 @@ export default function PettyCash() {
             </p>
           </div>
         </Card>
-        <Card className="flex items-center gap-4">
-          <span className="flex size-11 items-center justify-center rounded-xl bg-gold-100 text-gold-700">
+        <Card interactive className="flex items-center gap-4">
+          <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-gold-300 to-gold-500 text-ink-900 shadow-[0_6px_16px_-6px_rgba(220,159,44,0.55)]">
             <Building2 className="size-5" />
           </span>
           <div>
@@ -185,10 +230,10 @@ export default function PettyCash() {
             <p className="mt-0.5 text-sm text-ink-500">Departments funded this month</p>
           </div>
         </Card>
-        <Card className="flex items-center gap-4">
+        <Card interactive className="flex items-center gap-4">
           <span
-            className={`flex size-11 items-center justify-center rounded-xl ${
-              unfundedCount > 0 ? 'bg-[#fbe9e9] text-[#d03b3b]' : 'bg-[#e3f6ec] text-[#1a8f5e]'
+            className={`flex size-11 items-center justify-center rounded-xl text-white shadow-[0_6px_16px_-6px_rgba(0,0,0,0.35)] ${
+              unfundedCount > 0 ? 'bg-gradient-to-br from-[#e35c5c] to-[#c03333]' : 'bg-gradient-to-br from-[#22b56f] to-[#178a54]'
             }`}
           >
             <AlertTriangle className="size-5" />
@@ -201,6 +246,27 @@ export default function PettyCash() {
           </div>
         </Card>
       </div>
+
+      {treemapData.length > 0 && (
+        <Card className="!p-0 overflow-hidden">
+          <div className="p-6 pb-0">
+            <h2 className="font-display text-lg font-bold text-ink-900">Allocation by department</h2>
+            <p className="text-sm text-ink-500">
+              Sized by allocated budget · {MONTH_NAMES[month - 1]} {year}
+            </p>
+          </div>
+          <div className="h-64 px-4 pb-4 pt-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <Treemap data={treemapData} dataKey="size" nameKey="name" stroke="#fff" content={<TreemapNode />}>
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: '1px solid #dde2ea', fontSize: 13 }}
+                  formatter={(value) => [formatCurrency(Number(value), currencyCode), 'Allocated']}
+                />
+              </Treemap>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 sm:max-w-xs">
@@ -236,7 +302,7 @@ export default function PettyCash() {
           </div>
         ) : departments.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
               <PiggyBank className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No departments yet</h2>
@@ -246,7 +312,7 @@ export default function PettyCash() {
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
               <Search className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No matching departments</h2>
@@ -255,7 +321,7 @@ export default function PettyCash() {
         ) : (
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+              <tr className="border-y border-ink-100 bg-ink-50/60 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                 <th className="px-6 py-3 font-semibold">Department</th>
                 <th className="px-6 py-3 font-semibold">Allocated amount</th>
                 <th className="px-6 py-3 font-semibold">Share of total</th>
@@ -266,7 +332,7 @@ export default function PettyCash() {
               {rows.map(({ department, amount }) => {
                 const pct = amount != null && totalAllocated > 0 ? (Number(amount) / totalAllocated) * 100 : 0
                 return (
-                <tr key={department.id} className="border-b border-ink-100 last:border-0">
+                <tr key={department.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/60">
                   <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{department.name}</td>
                   <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">
                     {amount != null ? (
@@ -282,7 +348,10 @@ export default function PettyCash() {
                     {amount != null && (
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-24 overflow-hidden rounded-full bg-ink-100">
-                          <div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
+                          <div
+                            className="h-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-700"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                         <span className="text-xs tabular-nums text-ink-400">{pct.toFixed(0)}%</span>
                       </div>

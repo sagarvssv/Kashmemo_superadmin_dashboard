@@ -48,7 +48,7 @@ export default function Settings() {
       ) : profile ? (
         <Card className="flex flex-col gap-6">
           <div className="flex items-center gap-4">
-            <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-100 font-display text-lg font-bold text-brand-800">
+            <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 font-display text-lg font-bold text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
               {initials}
             </span>
             <div>
@@ -58,28 +58,28 @@ export default function Settings() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5">
+            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5 transition-colors hover:border-brand-200/70 hover:bg-brand-50/30">
               <Mail className="size-[18px] text-brand-600" />
               <div>
                 <p className="text-xs text-ink-400">Email</p>
                 <p className="text-sm font-medium text-ink-800">{profile.email}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5">
+            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5 transition-colors hover:border-brand-200/70 hover:bg-brand-50/30">
               <Phone className="size-[18px] text-brand-600" />
               <div>
                 <p className="text-xs text-ink-400">Phone</p>
                 <p className="text-sm font-medium text-ink-800">{profile.phoneNumber ?? 'Not provided'}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5">
+            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5 transition-colors hover:border-brand-200/70 hover:bg-brand-50/30">
               <ShieldCheck className="size-[18px] text-brand-600" />
               <div>
                 <p className="text-xs text-ink-400">Role</p>
                 <p className="text-sm font-medium text-ink-800">{profile.role}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5">
+            <div className="flex items-center gap-3 rounded-xl border border-ink-100 px-4 py-3.5 transition-colors hover:border-brand-200/70 hover:bg-brand-50/30">
               <BadgeCheck className="size-[18px] text-brand-600" />
               <div>
                 <p className="text-xs text-ink-400">Email verification</p>
@@ -96,7 +96,7 @@ export default function Settings() {
 
       <Card className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
             <Coins className="size-[18px]" />
           </span>
           <div>

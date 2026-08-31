@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import {
+  Building2,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -9,11 +10,13 @@ import {
   Download,
   Eye,
   Loader2,
+  Pencil,
   Plus,
   Search,
   Trash2,
   Upload,
   UserRound,
+  X,
 } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -25,6 +28,8 @@ import { Select } from '../../components/ui/Select'
 import { CopyableField } from '../../components/ui/CopyableField'
 import { extractErrorMessage } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
+import { useCurrencyStore } from '../../store/currencyStore'
+import { formatCurrency } from '../../lib/format'
 import {
   ASSIGNABLE_ROLES,
   addManualEmployee,
@@ -43,6 +48,14 @@ import {
 } from '../../lib/employees'
 import { connectSocket } from '../../lib/socket'
 import { listDepartments, type DepartmentOption } from '../../lib/departments'
+import {
+  assignManagerToDepartment,
+  listManagerDepartments,
+  setManagerApprovalLimit,
+  setManagerPrimaryDepartment,
+  unassignManagerFromDepartment,
+  type ManagerDepartment,
+} from '../../lib/managers'
 
 const statusStyles: Record<string, string> = {
   ACTIVE: 'bg-[#e6f6e6] text-[#0ca30c]',
@@ -98,6 +111,7 @@ const emptyForm: FormState = { name: '', email: '', phoneNumber: '', designation
 
 export default function Team() {
   const user = useAuthStore((state) => state.user)
+  const currencyCode = useCurrencyStore((state) => state.currencyCode)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading] = useState(true)
@@ -126,6 +140,15 @@ export default function Team() {
   const [viewTarget, setViewTarget] = useState<Employee | null>(null)
   const [viewDetails, setViewDetails] = useState<EmployeeDetails | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
+  const [managerDepts, setManagerDepts] = useState<ManagerDepartment[]>([])
+  const [managerDeptsLoading, setManagerDeptsLoading] = useState(false)
+  const [assignDeptId, setAssignDeptId] = useState('')
+  const [assigningDept, setAssigningDept] = useState(false)
+  const [primarySettingId, setPrimarySettingId] = useState<string | null>(null)
+  const [unassigningId, setUnassigningId] = useState<string | null>(null)
+  const [limitEditingId, setLimitEditingId] = useState<string | null>(null)
+  const [limitInputValue, setLimitInputValue] = useState('')
+  const [savingLimitId, setSavingLimitId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [page, setPage] = useState(1)
@@ -294,6 +317,93 @@ export default function Team() {
         setViewTarget(null)
       })
       .finally(() => setViewLoading(false))
+
+    setManagerDepts([])
+    setAssignDeptId('')
+    if (employee.role === 'MANAGER') {
+      fetchManagerDepts(employee.id)
+    }
+  }
+
+  const fetchManagerDepts = (managerId: string) => {
+    setManagerDeptsLoading(true)
+    listManagerDepartments(managerId)
+      .then((res) => setManagerDepts(res.data))
+      .catch((err) => toast.error(extractErrorMessage(err)))
+      .finally(() => setManagerDeptsLoading(false))
+  }
+
+  const handleAssignDept = async () => {
+    if (!viewTarget || !assignDeptId) return
+    setAssigningDept(true)
+    try {
+      await assignManagerToDepartment(viewTarget.id, assignDeptId)
+      toast.success('Department assigned.')
+      setAssignDeptId('')
+      fetchManagerDepts(viewTarget.id)
+    } catch (err) {
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setAssigningDept(false)
+    }
+  }
+
+  const handleSetPrimaryDept = async (departmentId: string) => {
+    if (!viewTarget) return
+    setPrimarySettingId(departmentId)
+    try {
+      await setManagerPrimaryDepartment(viewTarget.id, departmentId)
+      toast.success('Primary department updated.')
+      fetchManagerDepts(viewTarget.id)
+    } catch (err) {
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setPrimarySettingId(null)
+    }
+  }
+
+  const handleUnassignDept = async (departmentId: string) => {
+    if (!viewTarget) return
+    setUnassigningId(departmentId)
+    try {
+      await unassignManagerFromDepartment(viewTarget.id, departmentId)
+      toast.success('Department unassigned.')
+      fetchManagerDepts(viewTarget.id)
+    } catch (err) {
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setUnassigningId(null)
+    }
+  }
+
+  const openEditLimit = (dept: ManagerDepartment) => {
+    setLimitEditingId(dept.id)
+    setLimitInputValue(dept.approvalLimit != null ? String(dept.approvalLimit) : '')
+  }
+
+  const closeEditLimit = () => {
+    setLimitEditingId(null)
+    setLimitInputValue('')
+  }
+
+  const handleSaveLimit = async (departmentId: string) => {
+    if (!viewTarget) return
+    const value = Number(limitInputValue)
+    if (!limitInputValue.trim() || Number.isNaN(value) || value < 0) {
+      toast.error('Enter a valid approval limit.')
+      return
+    }
+    setSavingLimitId(departmentId)
+    try {
+      await setManagerApprovalLimit(viewTarget.id, departmentId, value)
+      toast.success('Approval limit updated.')
+      closeEditLimit()
+      fetchManagerDepts(viewTarget.id)
+    } catch (err) {
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setSavingLimitId(null)
+    }
   }
 
   return (
@@ -382,7 +492,7 @@ export default function Team() {
           </div>
         ) : employees.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
               <UserRound className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">
@@ -398,7 +508,7 @@ export default function Team() {
           <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full min-w-[980px] border-collapse">
               <thead>
-                <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <tr className="border-y border-ink-100 bg-ink-50/60 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                   <th className="px-6 py-3 font-semibold">Name</th>
                   <th className="px-6 py-3 font-semibold">Role</th>
                   <th className="px-6 py-3 font-semibold">Designation</th>
@@ -411,7 +521,7 @@ export default function Team() {
               </thead>
               <tbody>
                 {employees.map((employee) => (
-                  <tr key={employee.id} className="border-b border-ink-100 last:border-0">
+                  <tr key={employee.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/60">
                     <td className="px-6 py-3.5">
                       <p className="text-sm font-medium text-ink-800">{employee.name}</p>
                       <p className="text-sm text-ink-400">{employee.email}</p>
@@ -425,11 +535,15 @@ export default function Team() {
                           setOpenRoleMenuFor((id) => (id === employee.id ? null : employee.id))
                         }}
                         disabled={roleUpdatingId === employee.id}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-black/5 transition-colors disabled:opacity-50 ${
                           roleStyles[employee.role] ?? 'bg-ink-100 text-ink-600'
                         }`}
                       >
-                        {roleUpdatingId === employee.id ? <Loader2 className="size-3 animate-spin" /> : null}
+                        {roleUpdatingId === employee.id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <span className="size-1.5 rounded-full bg-current" />
+                        )}
                         {employee.role}
                         <ChevronDown className="size-3" />
                       </button>
@@ -467,16 +581,18 @@ export default function Team() {
                     <td className="px-6 py-3.5 text-sm text-ink-600">{employee.phoneNumber ?? '—'}</td>
                     <td className="px-6 py-3.5">
                       <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-black/5 ${
                           statusStyles[employee.status] ?? 'bg-ink-100 text-ink-500'
                         }`}
                       >
+                        <span className="size-1.5 rounded-full bg-current" />
                         {statusLabels[employee.status] ?? employee.status}
                       </span>
                     </td>
                     <td className="px-6 py-3.5">
                       {employee.mustResetPassword ? (
-                        <span className="inline-flex rounded-full bg-[#fef3de] px-2.5 py-1 text-xs font-semibold text-[#9c6716]">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fef3de] px-2.5 py-1 text-xs font-semibold text-[#9c6716] ring-1 ring-inset ring-black/5">
+                          <span className="size-1.5 rounded-full bg-current" />
                           Reset pending
                         </span>
                       ) : (
@@ -535,7 +651,7 @@ export default function Team() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="flex items-center gap-1 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-1 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-600 transition-colors hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-200 disabled:hover:bg-transparent"
               >
                 <ChevronLeft className="size-4" />
                 Prev
@@ -543,7 +659,7 @@ export default function Team() {
               <button
                 onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
                 disabled={page >= pagination.totalPages}
-                className="flex items-center gap-1 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-1 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-600 transition-colors hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-200 disabled:hover:bg-transparent"
               >
                 Next
                 <ChevronRight className="size-4" />
@@ -553,26 +669,35 @@ export default function Team() {
         )}
       </Card>
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add employee">
-        <form onSubmit={handleAddEmployee} noValidate className="flex flex-col gap-4">
-          <Field label="Full name" htmlFor="emp-name" error={formErrors.name}>
-            <Input
-              id="emp-name"
-              value={form.name}
-              onChange={(e) => updateForm('name', e.target.value)}
-              hasError={!!formErrors.name}
-            />
-          </Field>
-          <Field label="Email" htmlFor="emp-email" error={formErrors.email}>
-            <Input
-              id="emp-email"
-              type="email"
-              value={form.email}
-              onChange={(e) => updateForm('email', e.target.value)}
-              hasError={!!formErrors.email}
-            />
-          </Field>
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add employee" maxWidth="max-w-xl">
+        <form onSubmit={handleAddEmployee} noValidate className="flex flex-col gap-5">
+          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-brand-50 to-white px-4 py-3.5">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+              <UserRound className="size-5" />
+            </span>
+            <p className="text-sm text-ink-600">
+              A temporary password is emailed to them, and they'll be asked to reset it on first login.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Full name" htmlFor="emp-name" error={formErrors.name}>
+              <Input
+                id="emp-name"
+                value={form.name}
+                onChange={(e) => updateForm('name', e.target.value)}
+                hasError={!!formErrors.name}
+              />
+            </Field>
+            <Field label="Email" htmlFor="emp-email" error={formErrors.email}>
+              <Input
+                id="emp-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => updateForm('email', e.target.value)}
+                hasError={!!formErrors.email}
+              />
+            </Field>
             <Field label="Designation" htmlFor="emp-designation" error={formErrors.designation}>
               <Input
                 id="emp-designation"
@@ -591,18 +716,16 @@ export default function Team() {
                 hasError={!!formErrors.department}
               />
             </Field>
+            <Field label="Phone number (optional)" htmlFor="emp-phone" className="sm:col-span-2">
+              <Input
+                id="emp-phone"
+                value={form.phoneNumber}
+                onChange={(e) => updateForm('phoneNumber', e.target.value)}
+              />
+            </Field>
           </div>
-          <Field label="Phone number (optional)" htmlFor="emp-phone">
-            <Input
-              id="emp-phone"
-              value={form.phoneNumber}
-              onChange={(e) => updateForm('phoneNumber', e.target.value)}
-            />
-          </Field>
-          <p className="text-sm text-ink-400">
-            A temporary password will be emailed to them, and they'll be asked to reset it on first login.
-          </p>
-          <div className="mt-2 flex justify-end gap-3">
+
+          <div className="flex justify-end gap-3 border-t border-ink-100 pt-4">
             <Button type="button" variant="secondary" onClick={() => setAddOpen(false)}>
               Cancel
             </Button>
@@ -634,16 +757,16 @@ export default function Team() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      <Modal open={!!viewTarget} onClose={() => setViewTarget(null)} title="Employee details" maxWidth="max-w-md">
+      <Modal open={!!viewTarget} onClose={() => setViewTarget(null)} title="Employee details" maxWidth="max-w-2xl">
         {viewLoading ? (
           <div className="flex items-center justify-center gap-2.5 py-10 text-ink-400">
             <Loader2 className="size-5 animate-spin" />
             Loading…
           </div>
         ) : viewDetails ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <span className="flex size-12 items-center justify-center rounded-full bg-brand-100 font-display text-base font-bold text-brand-800">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-brand-50 to-white px-5 py-4">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 font-display text-lg font-bold text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
                 {viewDetails.name
                   .split(' ')
                   .map((p) => p[0])
@@ -651,34 +774,173 @@ export default function Team() {
                   .join('')
                   .toUpperCase()}
               </span>
-              <div>
-                <p className="font-display text-lg font-bold text-ink-900">{viewDetails.name}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-lg font-bold text-ink-900">{viewDetails.name}</p>
                 <p className="text-sm text-ink-500">{viewDetails.designation ?? '—'}</p>
               </div>
+              <span
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-black/5 ${
+                  roleStyles[viewDetails.role] ?? 'bg-ink-100 text-ink-600'
+                }`}
+              >
+                <span className="size-1.5 rounded-full bg-current" />
+                {viewDetails.role}
+              </span>
             </div>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-ink-100 px-4 py-3">
                 <p className="text-xs text-ink-400">Email</p>
-                <p className="text-sm font-medium text-ink-800">{viewDetails.email}</p>
+                <p className="truncate text-sm font-medium text-ink-800">{viewDetails.email}</p>
               </div>
               <div className="rounded-xl border border-ink-100 px-4 py-3">
                 <p className="text-xs text-ink-400">Phone</p>
                 <p className="text-sm font-medium text-ink-800">{viewDetails.phoneNumber ?? 'Not provided'}</p>
               </div>
               <div className="rounded-xl border border-ink-100 px-4 py-3">
-                <p className="text-xs text-ink-400">Role</p>
-                <p className="text-sm font-medium text-ink-800">{viewDetails.role}</p>
-              </div>
-              <div className="rounded-xl border border-ink-100 px-4 py-3">
                 <p className="text-xs text-ink-400">Department</p>
                 <p className="text-sm font-medium text-ink-800">{viewDetails.department?.name ?? 'Unassigned'}</p>
               </div>
+              <div className="rounded-xl border border-ink-100 px-4 py-3">
+                <p className="text-xs text-ink-400">Organization</p>
+                <p className="truncate text-sm font-medium text-ink-800">{viewDetails.organization.companyName}</p>
+              </div>
             </div>
-            <div className="rounded-xl border border-ink-100 px-4 py-3">
-              <p className="text-xs text-ink-400">Organization</p>
-              <p className="text-sm font-medium text-ink-800">{viewDetails.organization.companyName}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+            {viewDetails.role === 'MANAGER' && (
+              <div className="rounded-xl border border-ink-100 px-4 py-3.5">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-6 items-center justify-center rounded-md bg-brand-50 text-brand-700">
+                    <Building2 className="size-3.5" />
+                  </span>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Departments managed</p>
+                </div>
+                {managerDeptsLoading ? (
+                  <div className="flex items-center gap-2 py-1 text-ink-400">
+                    <Loader2 className="size-4 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {managerDepts.length === 0 && <p className="text-sm text-ink-400">No departments assigned.</p>}
+                    {managerDepts.map((d) => (
+                      <div key={d.id} className="flex flex-col gap-2 rounded-lg bg-ink-50 px-3 py-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-sm font-medium text-ink-800">
+                            {d.name}
+                            {d.isPrimary && (
+                              <span className="inline-flex items-center rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
+                                Primary
+                              </span>
+                            )}
+                          </span>
+                          {!d.isPrimary && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryDept(d.id)}
+                                disabled={primarySettingId === d.id}
+                                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                              >
+                                {primarySettingId === d.id && <Loader2 className="size-3 animate-spin" />}
+                                Make primary
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUnassignDept(d.id)}
+                                disabled={unassigningId === d.id}
+                                className="rounded-md p-1 text-ink-400 hover:bg-[#fbe9e9] hover:text-[#d03b3b] disabled:opacity-50"
+                                aria-label={`Unassign ${d.name}`}
+                              >
+                                {unassigningId === d.id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <X className="size-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs text-ink-500">
+                          <span>Approval limit:</span>
+                          {limitEditingId === d.id ? (
+                            <>
+                              <input
+                                type="number"
+                                min={0}
+                                autoFocus
+                                value={limitInputValue}
+                                onChange={(e) => setLimitInputValue(e.target.value)}
+                                className="w-24 rounded-md border border-ink-200 bg-white px-2 py-1 text-xs text-ink-800 outline-none focus:border-brand-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveLimit(d.id)}
+                                disabled={savingLimitId === d.id}
+                                className="rounded-md p-1 text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                                aria-label={`Save approval limit for ${d.name}`}
+                              >
+                                {savingLimitId === d.id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="size-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={closeEditLimit}
+                                className="rounded-md p-1 text-ink-400 hover:bg-ink-100"
+                                aria-label="Cancel"
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-semibold text-ink-700">
+                                {d.approvalLimit != null ? formatCurrency(d.approvalLimit, currencyCode) : 'Not set'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openEditLimit(d)}
+                                className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-brand-700"
+                                aria-label={`Edit approval limit for ${d.name}`}
+                              >
+                                <Pencil className="size-3" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Select value={assignDeptId} onChange={(e) => setAssignDeptId(e.target.value)} className="flex-1">
+                    <option value="">Assign department…</option>
+                    {departments
+                      .filter((dept) => !managerDepts.some((md) => md.id === dept.id))
+                      .map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                  </Select>
+                  <Button
+                    variant="secondary"
+                    onClick={handleAssignDept}
+                    loading={assigningDept}
+                    disabled={!assignDeptId}
+                    className="!px-3 !py-1.5 text-sm sm:w-auto"
+                  >
+                    <Plus className="size-3.5" />
+                    Assign
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 border-t border-ink-100 pt-4 sm:grid-cols-2">
               <CopyableField label="User ID" value={viewDetails.id} />
               <CopyableField label="Organization ID" value={user?.organizationId ?? 'Unavailable'} />
             </div>

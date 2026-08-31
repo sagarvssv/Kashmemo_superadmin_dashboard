@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Banknote, ClipboardCheck, Eye, Loader2 } from 'lucide-react'
+import { Banknote, Check, ClipboardCheck, Eye, Loader2, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
-import { Field } from '../../components/ui/Field'
+import { Field, controlClasses } from '../../components/ui/Field'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { CopyableField } from '../../components/ui/CopyableField'
@@ -12,12 +12,13 @@ import { extractErrorMessage } from '../../lib/api'
 import { formatCurrency } from '../../lib/format'
 import { useAuthStore } from '../../store/authStore'
 import { useCurrencyStore } from '../../store/currencyStore'
-import { disburseTicket, listTickets, type Ticket, type TicketStatus } from '../../lib/tickets'
+import { approveTicket, disburseTicket, listTickets, rejectTicket, type Ticket, type TicketStatus } from '../../lib/tickets'
 import { connectSocket } from '../../lib/socket'
 
 const STATUS_FILTERS: Array<{ value: TicketStatus | ''; label: string }> = [
   { value: '', label: 'All statuses' },
   { value: 'PENDING', label: 'Pending' },
+  { value: 'PARTIALLY_APPROVED', label: 'Partially approved' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'DISBURSED', label: 'Disbursed' },
   { value: 'REJECTED', label: 'Rejected' },
@@ -25,6 +26,7 @@ const STATUS_FILTERS: Array<{ value: TicketStatus | ''; label: string }> = [
 
 const statusStyles: Record<TicketStatus, string> = {
   PENDING: 'bg-[#fef3de] text-[#9c6716]',
+  PARTIALLY_APPROVED: 'bg-[#eaf1fd] text-[#2f5fb3]',
   APPROVED: 'bg-brand-100 text-brand-800',
   DISBURSED: 'bg-[#e3f6ec] text-[#1a8f5e]',
   REJECTED: 'bg-[#fbe9e9] text-[#d03b3b]',
@@ -32,6 +34,7 @@ const statusStyles: Record<TicketStatus, string> = {
 
 const statusLabels: Record<TicketStatus, string> = {
   PENDING: 'Pending',
+  PARTIALLY_APPROVED: 'Partially approved',
   APPROVED: 'Approved',
   DISBURSED: 'Disbursed',
   REJECTED: 'Rejected',
@@ -55,6 +58,12 @@ export default function Approvals() {
   const [disbursing, setDisbursing] = useState(false)
   const [disburseIdentifier, setDisburseIdentifier] = useState('')
   const [disburseError, setDisburseError] = useState('')
+
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<Ticket | null>(null)
+  const [rejecting, setRejecting] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectError, setRejectError] = useState('')
 
   useEffect(() => {
     if (!canManage) return
@@ -136,10 +145,58 @@ export default function Approvals() {
     }
   }
 
+  const handleApprove = async (ticket: Ticket) => {
+    setApprovingId(ticket.id)
+    try {
+      const res = await approveTicket(ticket.id)
+      setTickets((prev) => prev.map((t) => (t.id === res.data.id ? { ...t, ...res.data } : t)))
+      toast.success(res.data.status === 'PARTIALLY_APPROVED' ? 'Ticket approved — waiting on final sign-off.' : 'Ticket approved.')
+      setViewTicket((v) => (v && v.id === res.data.id ? { ...v, ...res.data } : v))
+    } catch (err) {
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const openReject = (ticket: Ticket) => {
+    setRejectTarget(ticket)
+    setRejectReason('')
+    setRejectError('')
+  }
+
+  const closeReject = () => {
+    setRejectTarget(null)
+    setRejectReason('')
+    setRejectError('')
+  }
+
+  const handleReject = async () => {
+    if (!rejectTarget) return
+    const reason = rejectReason.trim()
+    if (!reason) {
+      setRejectError('Enter a reason for rejecting this ticket.')
+      return
+    }
+
+    setRejecting(true)
+    try {
+      const res = await rejectTicket(rejectTarget.id, reason)
+      setTickets((prev) => prev.map((t) => (t.id === res.data.id ? { ...t, ...res.data } : t)))
+      toast.success('Ticket rejected.')
+      setViewTicket((v) => (v && v.id === res.data.id ? { ...v, ...res.data } : v))
+      closeReject()
+    } catch (err) {
+      toast.error(extractErrorMessage(err))
+    } finally {
+      setRejecting(false)
+    }
+  }
+
   if (!canManage) {
     return (
       <Card className="flex flex-col items-center gap-3 py-20 text-center">
-        <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+        <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
           <ClipboardCheck className="size-6" />
         </span>
         <h2 className="font-display text-lg font-bold text-ink-900">Restricted</h2>
@@ -177,7 +234,7 @@ export default function Approvals() {
           </div>
         ) : tickets.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
               <ClipboardCheck className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No tickets found</h2>
@@ -189,7 +246,7 @@ export default function Approvals() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse">
               <thead>
-                <tr className="border-y border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <tr className="border-y border-ink-100 bg-ink-50/60 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                   <th className="px-6 py-3 font-semibold">Purpose</th>
                   <th className="px-6 py-3 font-semibold">Department</th>
                   <th className="px-6 py-3 font-semibold">Amount</th>
@@ -200,7 +257,7 @@ export default function Approvals() {
               </thead>
               <tbody>
                 {tickets.map((ticket) => (
-                  <tr key={ticket.id} className="border-b border-ink-100 last:border-0">
+                  <tr key={ticket.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/60">
                     <td className="max-w-[220px] truncate px-6 py-3.5 text-sm font-medium text-ink-800" title={ticket.purpose}>
                       {ticket.purpose}
                     </td>
@@ -210,8 +267,9 @@ export default function Approvals() {
                     </td>
                     <td className="px-6 py-3.5">
                       <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[ticket.status]}`}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-black/5 ${statusStyles[ticket.status]}`}
                       >
+                        <span className="size-1.5 rounded-full bg-current" />
                         {statusLabels[ticket.status]}
                       </span>
                     </td>
@@ -228,6 +286,27 @@ export default function Approvals() {
                           <Eye className="size-3.5" />
                           View
                         </Button>
+                        {(ticket.status === 'PENDING' || ticket.status === 'PARTIALLY_APPROVED') && (
+                          <>
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleApprove(ticket)}
+                              loading={approvingId === ticket.id}
+                              className="!px-3 !py-1.5 text-sm !text-[#1a8f5e] hover:!bg-[#e3f6ec]"
+                            >
+                              <Check className="size-3.5" />
+                              Approve
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => openReject(ticket)}
+                              className="!px-3 !py-1.5 text-sm !text-[#d03b3b] hover:!bg-[#fbe9e9]"
+                            >
+                              <X className="size-3.5" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
                         {ticket.status === 'APPROVED' && (
                           <Button onClick={() => openDisburse(ticket)} className="!px-3 !py-1.5 text-sm">
                             <Banknote className="size-3.5" />
@@ -271,8 +350,9 @@ export default function Approvals() {
               <div>
                 <p className="text-xs text-ink-400">Status</p>
                 <span
-                  className={`mt-0.5 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[viewTicket.status]}`}
+                  className={`mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-black/5 ${statusStyles[viewTicket.status]}`}
                 >
+                  <span className="size-1.5 rounded-full bg-current" />
                   {statusLabels[viewTicket.status]}
                 </span>
               </div>
@@ -347,6 +427,34 @@ export default function Approvals() {
           </Button>
           <Button onClick={handleDisburse} loading={disbursing}>
             Disburse
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!rejectTarget} onClose={closeReject} title="Reject ticket" maxWidth="max-w-sm">
+        <p className="text-[15px] text-ink-500">
+          Reject "{rejectTarget?.purpose ?? ''}" (
+          {rejectTarget ? formatCurrency(rejectTarget.amount, currencyCode) : ''})? This can't be undone.
+        </p>
+        <Field label="Reason for rejection" htmlFor="reject-reason" error={rejectError} className="mt-4">
+          <textarea
+            id="reject-reason"
+            rows={3}
+            value={rejectReason}
+            onChange={(e) => {
+              setRejectReason(e.target.value)
+              setRejectError('')
+            }}
+            placeholder="Let the requester know why this was rejected"
+            className={controlClasses(!!rejectError) + ' resize-none'}
+          />
+        </Field>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" onClick={closeReject} disabled={rejecting}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleReject} loading={rejecting}>
+            Reject ticket
           </Button>
         </div>
       </Modal>

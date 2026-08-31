@@ -4,8 +4,10 @@ import type { Notification } from '../lib/notifications'
 interface NotificationState {
   items: Notification[]
   unreadCount: number
+  loaded: boolean
   setItems: (items: Notification[]) => void
   setUnreadCount: (count: number) => void
+  setLoaded: (loaded: boolean) => void
   prepend: (item: Notification) => void
   markReadLocal: (id: string) => void
   markAllReadLocal: () => void
@@ -15,7 +17,9 @@ interface NotificationState {
 export const useNotificationStore = create<NotificationState>()((set) => ({
   items: [],
   unreadCount: 0,
+  loaded: false,
   setItems: (items) => set({ items }),
+  setLoaded: (loaded) => set({ loaded }),
   setUnreadCount: (unreadCount) => set({ unreadCount }),
   prepend: (item) =>
     set((state) => ({
@@ -36,5 +40,5 @@ export const useNotificationStore = create<NotificationState>()((set) => ({
       items: state.items.map((n) => ({ ...n, isRead: true })),
       unreadCount: 0,
     })),
-  reset: () => set({ items: [], unreadCount: 0 }),
+  reset: () => set({ items: [], unreadCount: 0, loaded: false }),
 }))

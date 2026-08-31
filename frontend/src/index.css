@@ -12,29 +12,29 @@
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
 
-  --color-brand-50: #eafaf4;
-  --color-brand-100: #cdf1e2;
-  --color-brand-200: #9de3c8;
-  --color-brand-300: #66cda9;
-  --color-brand-400: #38b18b;
-  --color-brand-500: #1b9271;
-  --color-brand-600: #12755c;
-  --color-brand-700: #0f5e4b;
-  --color-brand-800: #0e4c3e;
-  --color-brand-900: #0c3f34;
-  --color-brand-950: #06251e;
+  --color-brand-50: #eefdf5;
+  --color-brand-100: #d6f7e4;
+  --color-brand-200: #adedc9;
+  --color-brand-300: #7ddda8;
+  --color-brand-400: #4ac686;
+  --color-brand-500: #17a768;
+  --color-brand-600: #0f8a55;
+  --color-brand-700: #0c6f45;
+  --color-brand-800: #0a5837;
+  --color-brand-900: #08432a;
+  --color-brand-950: #042318;
 
-  --color-ink-50: #f7f7f5;
-  --color-ink-100: #eeece7;
-  --color-ink-200: #dcd8d0;
-  --color-ink-300: #bcb5a8;
-  --color-ink-400: #948b7b;
-  --color-ink-500: #726a5c;
-  --color-ink-600: #5a5348;
-  --color-ink-700: #46403a;
-  --color-ink-800: #2e2a25;
-  --color-ink-900: #1c1a17;
-  --color-ink-950: #100f0d;
+  --color-ink-50: #f8f9fb;
+  --color-ink-100: #eef1f5;
+  --color-ink-200: #dde2ea;
+  --color-ink-300: #c3cad6;
+  --color-ink-400: #99a2b3;
+  --color-ink-500: #717a8c;
+  --color-ink-600: #565e6f;
+  --color-ink-700: #414856;
+  --color-ink-800: #2a2f3a;
+  --color-ink-900: #1a1e26;
+  --color-ink-950: #0e1015;
 
   --color-gold-50: #fdf6e8;
   --color-gold-100: #faeac2;
@@ -45,8 +45,20 @@
   --color-gold-600: #9c6716;
   --color-gold-700: #784f14;
 
-  --shadow-soft: 0 1px 2px rgba(28, 26, 23, 0.04), 0 8px 24px -8px rgba(28, 26, 23, 0.12);
-  --shadow-lift: 0 2px 4px rgba(28, 26, 23, 0.06), 0 16px 40px -12px rgba(28, 26, 23, 0.18);
+  --shadow-soft: 0 1px 2px rgba(14, 16, 21, 0.04), 0 8px 24px -8px rgba(14, 16, 21, 0.12);
+  --shadow-lift: 0 2px 4px rgba(14, 16, 21, 0.06), 0 16px 40px -12px rgba(14, 16, 21, 0.18);
+  --shadow-card: 0 1px 1px rgba(14, 16, 21, 0.03), 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 32px -14px rgba(12, 111, 69, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(23, 167, 104, 0.08), 0 12px 32px -8px rgba(12, 111, 69, 0.28), 0 0 40px -12px rgba(74, 198, 134, 0.35);
+  --shadow-sidebar: 0 0 60px -20px rgba(23, 167, 104, 0.45);
+
+  /* Categorical chart palette — fixed hue order, validated CVD-safe
+     (node scripts/validate_palette.js). Never cycle or reassign per-render;
+     each department/series keeps the same slot for as long as it exists. */
+  --chart-1: #17a768;
+  --chart-2: #c2831c;
+  --chart-3: #2f5fbf;
+  --chart-4: #b23a6b;
+  --chart-5: #7d3fae;
 }
 
 html {
@@ -60,6 +72,28 @@ body {
   color: var(--color-ink-900);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  /* No `both`/`forwards` fill-mode here on purpose: a fill-mode would leave
+     `transform: translateY(0)` applied to this element forever after the
+     animation ends, which makes it a containing block for any `position:
+     fixed` descendant (modals) — they'd then be positioned against this
+     page-content box instead of the viewport and appear to drift down the
+     page. Letting the animation revert to the un-animated (transform: none)
+     state once it finishes keeps fixed-position children anchored correctly. */
+  animation: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 h1, h2, h3, h4 {

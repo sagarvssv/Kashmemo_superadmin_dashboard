@@ -127,6 +127,7 @@ export interface LoginResponse {
     isEmailVerified: boolean
     plan: Plan
     companyName: string
+    department: string | null
     token: { accessToken: string; refreshToken: string }
   }
 }

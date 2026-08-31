@@ -46,6 +46,7 @@ export default function Login() {
         isEmailVerified: data.isEmailVerified,
         companyName: data.companyName,
         plan: data.plan,
+        departmentId: data.department,
       })
       toast.success('Welcome back!')
       navigate('/dashboard')
