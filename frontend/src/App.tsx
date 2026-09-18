@@ -12,7 +12,7 @@ import PettyCash from './pages/dashboard/PettyCash'
 import Approvals from './pages/dashboard/Approvals'
 import Team from './pages/dashboard/Team'
 import Settings from './pages/dashboard/Settings'
-import ComingSoon from './pages/dashboard/ComingSoon'
+import Reports from './pages/dashboard/Reports'
 
 export default function App() {
   return (
@@ -37,7 +37,7 @@ export default function App() {
           <Route index element={<Overview />} />
           <Route path="petty-cash" element={<PettyCash />} />
           <Route path="approvals" element={<Approvals />} />
-          <Route path="reports" element={<ComingSoon title="Reports" />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="team" element={<Team />} />
           <Route path="settings" element={<Settings />} />
         </Route>

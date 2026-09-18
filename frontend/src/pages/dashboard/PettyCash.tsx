@@ -22,8 +22,8 @@ const YEAR_OPTIONS = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear(
 // Fixed hue order, validated CVD-safe (see index.css --chart-1..5 / dataviz skill).
 // Top 4 departments by allocation keep their own hue; the long tail shares one
 // neutral fill (still its own tile + label) rather than generating more hues.
-const CHART_COLORS = ['#17a768', '#c2831c', '#2f5fbf', '#b23a6b', '#7d3fae']
-const OTHER_COLOR = '#c3cad6'
+const CHART_COLORS = ['#3f8f5f', '#d2942f', '#3b6fb0', '#b3457a', '#6a4fb0']
+const OTHER_COLOR = '#c3d0c5'
 
 interface TreemapNodeProps {
   x?: number
@@ -207,7 +207,7 @@ export default function PettyCash() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Card interactive className="flex items-center gap-4">
-          <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+          <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
             <Wallet className="size-5" />
           </span>
           <div>
@@ -259,7 +259,7 @@ export default function PettyCash() {
             <ResponsiveContainer width="100%" height="100%">
               <Treemap data={treemapData} dataKey="size" nameKey="name" stroke="#fff" content={<TreemapNode />}>
                 <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid #dde2ea', fontSize: 13 }}
+                  contentStyle={{ borderRadius: 12, border: '1px solid #dfe8e0', fontSize: 13 }}
                   formatter={(value) => [formatCurrency(Number(value), currencyCode), 'Allocated']}
                 />
               </Treemap>
@@ -302,7 +302,7 @@ export default function PettyCash() {
           </div>
         ) : departments.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
               <PiggyBank className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No departments yet</h2>
@@ -312,7 +312,7 @@ export default function PettyCash() {
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
               <Search className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No matching departments</h2>
@@ -321,7 +321,7 @@ export default function PettyCash() {
         ) : (
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-y border-ink-100 bg-ink-50/60 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+              <tr className="border-y border-ink-100 bg-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                 <th className="px-6 py-3 font-semibold">Department</th>
                 <th className="px-6 py-3 font-semibold">Allocated amount</th>
                 <th className="px-6 py-3 font-semibold">Share of total</th>
@@ -332,7 +332,7 @@ export default function PettyCash() {
               {rows.map(({ department, amount }) => {
                 const pct = amount != null && totalAllocated > 0 ? (Number(amount) / totalAllocated) * 100 : 0
                 return (
-                <tr key={department.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/60">
+                <tr key={department.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-100">
                   <td className="px-6 py-3.5 text-sm font-medium text-ink-800">{department.name}</td>
                   <td className="px-6 py-3.5 text-sm font-semibold tabular-nums text-ink-800">
                     {amount != null ? (

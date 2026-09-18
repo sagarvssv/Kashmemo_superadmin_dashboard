@@ -492,7 +492,7 @@ export default function Team() {
           </div>
         ) : employees.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
               <UserRound className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">
@@ -508,7 +508,7 @@ export default function Team() {
           <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full min-w-[980px] border-collapse">
               <thead>
-                <tr className="border-y border-ink-100 bg-ink-50/60 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <tr className="border-y border-ink-100 bg-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                   <th className="px-6 py-3 font-semibold">Name</th>
                   <th className="px-6 py-3 font-semibold">Role</th>
                   <th className="px-6 py-3 font-semibold">Designation</th>
@@ -521,7 +521,7 @@ export default function Team() {
               </thead>
               <tbody>
                 {employees.map((employee) => (
-                  <tr key={employee.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/60">
+                  <tr key={employee.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-100">
                     <td className="px-6 py-3.5">
                       <p className="text-sm font-medium text-ink-800">{employee.name}</p>
                       <p className="text-sm text-ink-400">{employee.email}</p>
@@ -672,7 +672,7 @@ export default function Team() {
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add employee" maxWidth="max-w-xl">
         <form onSubmit={handleAddEmployee} noValidate className="flex flex-col gap-5">
           <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-brand-50 to-white px-4 py-3.5">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
               <UserRound className="size-5" />
             </span>
             <p className="text-sm text-ink-600">
@@ -766,7 +766,7 @@ export default function Team() {
         ) : viewDetails ? (
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-brand-50 to-white px-5 py-4">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 font-display text-lg font-bold text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 font-display text-lg font-bold text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
                 {viewDetails.name
                   .split(' ')
                   .map((p) => p[0])

@@ -48,7 +48,7 @@ export default function Settings() {
       ) : profile ? (
         <Card className="flex flex-col gap-6">
           <div className="flex items-center gap-4">
-            <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 font-display text-lg font-bold text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+            <span className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 font-display text-lg font-bold text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
               {initials}
             </span>
             <div>
@@ -96,7 +96,7 @@ export default function Settings() {
 
       <Card className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
             <Coins className="size-[18px]" />
           </span>
           <div>

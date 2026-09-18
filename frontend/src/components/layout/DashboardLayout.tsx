@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Bell,
   LayoutGrid,
   Wallet,
   ClipboardCheck,
@@ -43,6 +42,13 @@ const planLabel: Record<string, string> = {
   STARTER: 'Starter plan',
   GROW: 'Grow plan',
   ENTERPRISE: 'Enterprise plan',
+}
+
+const roleSuiteLabel: Record<string, string> = {
+  CEO: 'CEO Suite',
+  HR: 'HR Suite',
+  FINANCE_MANAGER: 'Finance Suite',
+  MANAGER: 'Manager Suite',
 }
 
 export function DashboardLayout() {
@@ -104,16 +110,15 @@ export function DashboardLayout() {
     .toUpperCase()
 
   const sidebarContent = (
-    <div className="relative flex h-full flex-col">
-      <div
-        className="pointer-events-none absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-brand-400/20 blur-3xl"
-        aria-hidden
-      />
-      <div className="relative shrink-0">
-        <div className="px-6 pb-8 pt-7">
-          <Logo mark="light" />
+    <div className="flex h-full flex-col">
+      <div className="shrink-0">
+        <div className="px-6 pb-1 pt-7">
+          <Logo mark="dark" />
         </div>
-        <nav className="flex flex-col gap-1 px-4">
+        <p className="mb-6 pl-[46px] text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+          {roleSuiteLabel[user?.role ?? ''] ?? 'Admin Suite'}
+        </p>
+        <nav className="flex flex-col gap-0.5 px-4">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -122,77 +127,50 @@ export function DashboardLayout() {
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
                 clsx(
-                  'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] font-medium transition-all duration-150',
+                  'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors duration-150',
                   isActive
-                    ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                    : 'text-brand-200/80 hover:bg-white/5 hover:text-white',
+                    ? 'bg-white text-brand-700 shadow-[0_1px_2px_rgba(15,18,15,0.06)]'
+                    : 'text-ink-500 hover:bg-white/70 hover:text-ink-900',
                 )
               }
             >
-              {({ isActive }) => (
-                <>
-                  <span
-                    className={clsx(
-                      'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-brand-300 to-gold-300 transition-opacity',
-                      isActive ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  <span
-                    className={clsx(
-                      'flex size-8 items-center justify-center rounded-lg transition-colors',
-                      isActive ? 'bg-white/10 text-white' : 'text-brand-200/80 group-hover:text-white',
-                    )}
-                  >
-                    <Icon className="size-[18px]" />
-                  </span>
-                  {label}
-                </>
-              )}
+              <Icon className="size-4" />
+              {label}
             </NavLink>
           ))}
         </nav>
       </div>
 
-      <div className="relative mt-5 flex min-h-0 flex-1 flex-col px-4">
-        <div className="flex shrink-0 items-center gap-2 px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-brand-200/60">
-          <Bell className="size-3.5" />
+      <div className="mt-6 flex min-h-0 flex-1 flex-col px-4">
+        <p className="shrink-0 px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-ink-400">
           Notifications
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/[0.06] bg-white/[0.04]">
+        </p>
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {notificationsLoading ? (
             <div className="flex items-center justify-center py-8">
-              <span className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+              <span className="size-4 animate-spin rounded-full border-2 border-ink-200 border-t-brand-600" />
             </div>
           ) : notifications.length === 0 ? (
-            <p className="px-3 py-6 text-center text-xs text-brand-200/60">You're all caught up.</p>
+            <p className="px-1 py-4 text-xs text-ink-400">You're all caught up.</p>
           ) : (
-            <div className="flex flex-col py-1">
+            <div className="flex flex-col gap-2">
               {notifications.slice(0, 8).map((n) => (
                 <button
                   key={n.id}
                   onClick={() => handleNotificationClick(n.id, n.isRead)}
                   className={clsx(
-                    'flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.06]',
-                    !n.isRead && 'bg-white/[0.04]',
+                    'rounded-lg bg-white px-2.5 py-2 text-left shadow-[0_1px_2px_rgba(15,18,15,0.04)] transition-colors hover:bg-brand-50',
                   )}
                 >
-                  <span
+                  <p
                     className={clsx(
-                      'mt-1.5 size-1.5 shrink-0 rounded-full',
-                      n.isRead ? 'bg-transparent' : 'bg-gold-300 shadow-[0_0_0_3px_rgba(233,185,79,0.18)]',
+                      'line-clamp-2 text-xs leading-snug',
+                      n.isRead ? 'text-ink-500' : 'font-medium text-ink-900',
                     )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={clsx(
-                        'line-clamp-2 text-[13px] leading-snug',
-                        n.isRead ? 'text-brand-200/70' : 'font-medium text-white',
-                      )}
-                    >
-                      {n.message}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-brand-200/50">{formatRelativeTime(n.createdAt)}</p>
-                  </div>
+                  >
+                    {n.message}
+                  </p>
+                  <p className="mt-1 text-[11px] text-ink-400">{formatRelativeTime(n.createdAt)}</p>
                 </button>
               ))}
             </div>
@@ -200,17 +178,17 @@ export function DashboardLayout() {
         </div>
       </div>
 
-      <div className="relative m-4 shrink-0 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.06] p-4">
-        <p className="font-display text-sm font-bold text-white">
+      <div className="m-4 shrink-0 rounded-xl border border-ink-200 bg-white p-4">
+        <p className="font-display text-sm font-bold text-ink-900">
           {planLabel[user?.plan ?? 'STARTER']}
         </p>
-        <p className="mt-1 text-xs text-brand-200/80">
+        <p className="mt-1 text-xs text-ink-500">
           {user?.plan === 'ENTERPRISE'
             ? 'You have full access to every feature.'
             : 'Upgrade to unlock more team seats & workflows.'}
         </p>
         {user?.plan !== 'ENTERPRISE' && (
-          <button className="mt-3 w-full rounded-lg bg-gradient-to-b from-gold-300 to-gold-400 px-3 py-2 font-display text-xs font-bold text-ink-900 shadow-[0_4px_14px_-4px_rgba(220,159,44,0.6)] transition-all hover:shadow-[0_6px_18px_-4px_rgba(220,159,44,0.75)]">
+          <button className="mt-3 w-full rounded-lg bg-gradient-to-b from-brand-500 to-brand-700 px-3 py-2 font-display text-xs font-bold text-white shadow-soft transition-all hover:shadow-[var(--shadow-glow)]">
             Upgrade plan
           </button>
         )}
@@ -219,15 +197,15 @@ export function DashboardLayout() {
   )
 
   return (
-    <div className="flex min-h-screen bg-ink-50">
-      <aside className="relative hidden w-[260px] shrink-0 overflow-hidden bg-gradient-to-b from-ink-950 via-brand-950 to-ink-950 shadow-[var(--shadow-sidebar)] lg:block">
+    <div className="flex min-h-screen bg-white">
+      <aside className="hidden w-[220px] shrink-0 self-start border-r border-ink-200 bg-sidebar lg:sticky lg:top-0 lg:block lg:h-screen">
         {sidebarContent}
       </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-ink-950/50" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[260px] overflow-hidden bg-gradient-to-b from-ink-950 via-brand-950 to-ink-950">
+          <div className="absolute inset-0 bg-ink-950/40" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-[220px] border-r border-ink-200 bg-sidebar">
             {sidebarContent}
           </aside>
         </div>

@@ -12,53 +12,55 @@
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
 
-  --color-brand-50: #eefdf5;
-  --color-brand-100: #d6f7e4;
-  --color-brand-200: #adedc9;
-  --color-brand-300: #7ddda8;
-  --color-brand-400: #4ac686;
-  --color-brand-500: #17a768;
-  --color-brand-600: #0f8a55;
-  --color-brand-700: #0c6f45;
-  --color-brand-800: #0a5837;
-  --color-brand-900: #08432a;
-  --color-brand-950: #042318;
+  --color-brand-50: #eaf6ec;
+  --color-brand-100: #dff2e3;
+  --color-brand-200: #c3e6cc;
+  --color-brand-300: #a0d6ae;
+  --color-brand-400: #71bd87;
+  --color-brand-500: #3f8f5f;
+  --color-brand-600: #357b50;
+  --color-brand-700: #2c6e45;
+  --color-brand-800: #235939;
+  --color-brand-900: #1a4229;
+  --color-brand-950: #0f2818;
 
-  --color-ink-50: #f8f9fb;
-  --color-ink-100: #eef1f5;
-  --color-ink-200: #dde2ea;
-  --color-ink-300: #c3cad6;
-  --color-ink-400: #99a2b3;
-  --color-ink-500: #717a8c;
-  --color-ink-600: #565e6f;
-  --color-ink-700: #414856;
-  --color-ink-800: #2a2f3a;
-  --color-ink-900: #1a1e26;
-  --color-ink-950: #0e1015;
+  --color-card: #f6faf7;
+  --color-sidebar: #f0f6f1;
+
+  --color-ink-50: #fafbfa;
+  --color-ink-100: #e8f0e9;
+  --color-ink-200: #dbe6dc;
+  --color-ink-300: #c3d0c5;
+  --color-ink-400: #8a9690;
+  --color-ink-500: #5f6b60;
+  --color-ink-600: #4a544c;
+  --color-ink-700: #3a423b;
+  --color-ink-800: #262b26;
+  --color-ink-900: #1a1a1a;
+  --color-ink-950: #0f120f;
 
   --color-gold-50: #fdf6e8;
-  --color-gold-100: #faeac2;
+  --color-gold-100: #fbf0dc;
   --color-gold-200: #f3d489;
   --color-gold-300: #e9b94f;
-  --color-gold-400: #dc9f2c;
-  --color-gold-500: #c2831c;
-  --color-gold-600: #9c6716;
+  --color-gold-400: #d2942f;
+  --color-gold-500: #b17c1f;
+  --color-gold-600: #9c7412;
   --color-gold-700: #784f14;
 
   --shadow-soft: 0 1px 2px rgba(14, 16, 21, 0.04), 0 8px 24px -8px rgba(14, 16, 21, 0.12);
   --shadow-lift: 0 2px 4px rgba(14, 16, 21, 0.06), 0 16px 40px -12px rgba(14, 16, 21, 0.18);
-  --shadow-card: 0 1px 1px rgba(14, 16, 21, 0.03), 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 32px -14px rgba(12, 111, 69, 0.16);
-  --shadow-glow: 0 0 0 1px rgba(23, 167, 104, 0.08), 0 12px 32px -8px rgba(12, 111, 69, 0.28), 0 0 40px -12px rgba(74, 198, 134, 0.35);
-  --shadow-sidebar: 0 0 60px -20px rgba(23, 167, 104, 0.45);
+  --shadow-card: 0 1px 1px rgba(15, 18, 15, 0.03), 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 32px -14px rgba(44, 110, 69, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(63, 143, 95, 0.08), 0 12px 32px -8px rgba(44, 110, 69, 0.28), 0 0 40px -12px rgba(113, 189, 135, 0.35);
 
   /* Categorical chart palette — fixed hue order, validated CVD-safe
      (node scripts/validate_palette.js). Never cycle or reassign per-render;
      each department/series keeps the same slot for as long as it exists. */
-  --chart-1: #17a768;
-  --chart-2: #c2831c;
-  --chart-3: #2f5fbf;
-  --chart-4: #b23a6b;
-  --chart-5: #7d3fae;
+  --chart-1: #3f8f5f;
+  --chart-2: #d2942f;
+  --chart-3: #3b6fb0;
+  --chart-4: #b3457a;
+  --chart-5: #6a4fb0;
 }
 
 html {

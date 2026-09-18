@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Banknote, Check, ClipboardCheck, Eye, Loader2, X } from 'lucide-react'
+import { Banknote, Check, ChevronLeft, ChevronRight, ClipboardCheck, Eye, Loader2, X } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Field, controlClasses } from '../../components/ui/Field'
 import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
 import { CopyableField } from '../../components/ui/CopyableField'
 import { extractErrorMessage } from '../../lib/api'
 import { formatCurrency } from '../../lib/format'
@@ -47,10 +46,16 @@ export default function Approvals() {
   const currencyCode = useCurrencyStore((state) => state.currencyCode)
   const canManage = role === 'CEO' || role === 'HR' || role === 'FINANCE_MANAGER'
 
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('')
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('PENDING')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
+  // Cursor-based pagination: the backend only hands back a `nextCursor`, no
+  // offset/total, so page N's cursor is whatever page N-1's response returned.
+  // pageCursors[i] is the cursor to fetch page i; pageCursors[0] is always
+  // null (first page). Going "back" re-fetches with the cursor already on
+  // the stack instead of re-walking from page 1.
+  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
+  const [pageIndex, setPageIndex] = useState(0)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
 
   const [viewTicket, setViewTicket] = useState<Ticket | null>(null)
@@ -65,20 +70,45 @@ export default function Approvals() {
   const [rejectReason, setRejectReason] = useState('')
   const [rejectError, setRejectError] = useState('')
 
-  useEffect(() => {
-    if (!canManage) return
+  const loadPage = (index: number, cursor: string | null) => {
     setLoading(true)
-    listTickets({ status: statusFilter || undefined, limit: LIMIT })
+    listTickets({ status: statusFilter || undefined, limit: LIMIT, cursor: cursor ?? undefined })
       .then((res) => {
         setTickets(res.data)
         setNextCursor(res.nextCursor)
+        setPageIndex(index)
+        setPageCursors((prev) => {
+          if (prev[index + 1] === res.nextCursor) return prev
+          const next = prev.slice(0, index + 1)
+          next[index + 1] = res.nextCursor
+          return next
+        })
       })
       .catch((err) => toast.error(extractErrorMessage(err)))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    if (!canManage) return
+    setPageCursors([null])
+    loadPage(0, null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, canManage])
+
+  const handleNextPage = () => {
+    if (!nextCursor) return
+    loadPage(pageIndex + 1, nextCursor)
+  }
+
+  const handlePrevPage = () => {
+    if (pageIndex === 0) return
+    loadPage(pageIndex - 1, pageCursors[pageIndex - 1])
+  }
 
   const statusFilterRef = useRef(statusFilter)
   statusFilterRef.current = statusFilter
+  const pageIndexRef = useRef(pageIndex)
+  pageIndexRef.current = pageIndex
 
   useEffect(() => {
     if (!canManage) return
@@ -89,7 +119,11 @@ export default function Approvals() {
     const handleCreated = (payload: { ticket: Ticket }) => {
       const filter = statusFilterRef.current
       if (filter && filter !== payload.ticket.status) return
-      setTickets((prev) => [payload.ticket, ...prev])
+      // Only splice a live-created ticket into view on page 1 — pages beyond
+      // that are a fixed cursor snapshot, so injecting here would desync the
+      // row count from what the cursor actually points at.
+      if (pageIndexRef.current !== 0) return
+      setTickets((prev) => [payload.ticket, ...prev].slice(0, LIMIT))
     }
     socket.on('ticket:status-update', handleStatusUpdate)
     socket.on('ticket:created', handleCreated)
@@ -98,18 +132,6 @@ export default function Approvals() {
       socket.off('ticket:created', handleCreated)
     }
   }, [canManage])
-
-  const handleLoadMore = () => {
-    if (!nextCursor) return
-    setLoadingMore(true)
-    listTickets({ status: statusFilter || undefined, limit: LIMIT, cursor: nextCursor })
-      .then((res) => {
-        setTickets((prev) => [...prev, ...res.data])
-        setNextCursor(res.nextCursor)
-      })
-      .catch((err) => toast.error(extractErrorMessage(err)))
-      .finally(() => setLoadingMore(false))
-  }
 
   const openDisburse = (ticket: Ticket) => {
     setDisburseTarget(ticket)
@@ -196,7 +218,7 @@ export default function Approvals() {
   if (!canManage) {
     return (
       <Card className="flex flex-col items-center gap-3 py-20 text-center">
-        <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+        <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
           <ClipboardCheck className="size-6" />
         </span>
         <h2 className="font-display text-lg font-bold text-ink-900">Restricted</h2>
@@ -212,18 +234,21 @@ export default function Approvals() {
         <p className="mt-1 text-[15px] text-ink-500">Review tickets and mark approved ones as disbursed.</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as TicketStatus | '')}
-          className="max-w-[180px]"
-        >
-          {STATUS_FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </Select>
+      <div className="flex flex-wrap items-center gap-2">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value || 'ALL'}
+            type="button"
+            onClick={() => setStatusFilter(f.value)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              statusFilter === f.value
+                ? 'bg-brand-600 text-white shadow-soft'
+                : 'bg-card text-ink-500 ring-1 ring-inset ring-ink-200 hover:bg-ink-100 hover:text-ink-800'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       <Card className="!p-0 overflow-hidden">
@@ -234,7 +259,7 @@ export default function Approvals() {
           </div>
         ) : tickets.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(12,111,69,0.55)]">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_-6px_rgba(44,110,69,0.55)]">
               <ClipboardCheck className="size-6" />
             </span>
             <h2 className="font-display text-lg font-bold text-ink-900">No tickets found</h2>
@@ -246,7 +271,7 @@ export default function Approvals() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse">
               <thead>
-                <tr className="border-y border-ink-100 bg-ink-50/60 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <tr className="border-y border-ink-100 bg-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
                   <th className="px-6 py-3 font-semibold">Purpose</th>
                   <th className="px-6 py-3 font-semibold">Department</th>
                   <th className="px-6 py-3 font-semibold">Amount</th>
@@ -257,7 +282,7 @@ export default function Approvals() {
               </thead>
               <tbody>
                 {tickets.map((ticket) => (
-                  <tr key={ticket.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-50/60">
+                  <tr key={ticket.id} className="border-b border-ink-100 transition-colors last:border-0 hover:bg-ink-100">
                     <td className="max-w-[220px] truncate px-6 py-3.5 text-sm font-medium text-ink-800" title={ticket.purpose}>
                       {ticket.purpose}
                     </td>
@@ -323,11 +348,29 @@ export default function Approvals() {
         )}
       </Card>
 
-      {nextCursor && (
-        <div className="flex justify-center">
-          <Button variant="secondary" onClick={handleLoadMore} loading={loadingMore}>
-            Load more
-          </Button>
+      {(pageIndex > 0 || nextCursor) && tickets.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-ink-500">Page {pageIndex + 1}</p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handlePrevPage}
+              disabled={pageIndex === 0 || loading}
+              className="!px-3 !py-1.5 text-sm"
+            >
+              <ChevronLeft className="size-3.5" />
+              Previous
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleNextPage}
+              disabled={!nextCursor || loading}
+              className="!px-3 !py-1.5 text-sm"
+            >
+              Next
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
         </div>
       )}
 

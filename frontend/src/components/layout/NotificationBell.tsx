@@ -211,7 +211,7 @@ export function NotificationBell() {
                   >
                     <div className="flex w-full items-start gap-2">
                       {!n.isRead && (
-                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-600 shadow-[0_0_0_3px_rgba(15,138,85,0.15)]" />
+                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-600 shadow-[0_0_0_3px_rgba(53,123,80,0.15)]" />
                       )}
                       <p className={`text-sm ${n.isRead ? 'text-ink-600' : 'font-medium text-ink-900'}`}>
                         {n.message}
